@@ -592,10 +592,15 @@ MonoBehaviour:
   - {fileID: 214302668}
   - {fileID: 10649756}
   - {fileID: 621054710}
+  - {fileID: 497911425}
+  - {fileID: 1961719347}
+  - {fileID: 1475733676}
+  - {fileID: 1137116698}
   _selectedBatchBuilder: {fileID: 1095474775}
   _selectedPainter: {fileID: 650609014}
   _designBatchBuilder: {fileID: 1394266095}
   _designPainter: {fileID: 158461331}
+  _demolishAreaPainter: {fileID: 617817952}
 --- !u!4 &204504258
 Transform:
   m_ObjectHideFlags: 0
@@ -613,6 +618,7 @@ Transform:
   - {fileID: 650609013}
   - {fileID: 1394266096}
   - {fileID: 158461332}
+  - {fileID: 617817951}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &212603011
@@ -1846,7 +1852,6 @@ GameObject:
   - component: {fileID: 541264719}
   - component: {fileID: 541264721}
   - component: {fileID: 541264722}
-  - component: {fileID: 541264723}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -1933,21 +1938,52 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!114 &541264723
+--- !u!1 &617817950
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 617817951}
+  - component: {fileID: 617817952}
+  m_Layer: 0
+  m_Name: Demolish Area Painter
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &617817951
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 617817950}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 204504258}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &617817952
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 541264718}
+  m_GameObject: {fileID: 617817950}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5592043ccc043b045bfc81214b45a81d, type: 3}
+  m_Script: {fileID: 11500000, guid: 3025e16596e04c24e95f93eccae1d695, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _player: {fileID: 0}
-  _target: {fileID: 0}
-  _offset: {x: 0, y: 0, z: 0}
+  _borderColor: {r: 1, g: 0.2, b: 0.2, a: 0.7}
+  _lineWidth: 0.15
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0
@@ -2929,7 +2965,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _baseMaterial: {fileID: 2100000, guid: 2a20cb2ca8a16af48b05ad5b5d0639fc, type: 2}
-  _alpha: 0.3
+  _alpha: 0.2
 --- !u!4 &1095474776
 Transform:
   m_ObjectHideFlags: 0
@@ -5711,7 +5747,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: d7f75bd0a9b65034f8141440d64b9194, type: 3}
+  m_Sprite: {fileID: 21300000, guid: dae5940cbe723274fb6f18b3c0b88864, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

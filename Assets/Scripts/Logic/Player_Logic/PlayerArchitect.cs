@@ -64,7 +64,10 @@ public partial class PlayerArchitect : MonoBehaviour
         _input.OnCopyBlockOnce += OnCopyOnce;
         _input.OnCopyBlockDrag += OnCopyDrag;
         _input.OnCopyBlockDragEnd += OnCopyDragEnd;
-        _input.OnDemolishNow += OnCancel;
+        _input.OnDemolishNow += OnDemolishNow;
+        _input.OnDemolishOnce += OnDemolishOnce;
+        _input.OnDemolishDrag += OnDemolishDrag;
+        _input.OnDemolishDragEnd += OnDemolishDragEnd;
     }
 
     public void RunBeforeFrame() { }
@@ -80,7 +83,10 @@ public partial class PlayerArchitect : MonoBehaviour
         _input.OnCopyBlockOnce -= OnCopyOnce;
         _input.OnCopyBlockDrag -= OnCopyDrag;
         _input.OnCopyBlockDragEnd -= OnCopyDragEnd;
-        _input.OnDemolishNow -= OnCancel;
+        _input.OnDemolishNow -= OnDemolishNow;
+        _input.OnDemolishOnce -= OnDemolishOnce;
+        _input.OnDemolishDrag -= OnDemolishDrag;
+        _input.OnDemolishDragEnd -= OnDemolishDragEnd;
     }
     #endregion
 }

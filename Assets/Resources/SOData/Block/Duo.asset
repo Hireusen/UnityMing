@@ -18,13 +18,13 @@ MonoBehaviour:
     offset: {x: 0, y: 0, z: 0}
   - sprite: {fileID: 21300000, guid: f9beb18f06f040f47b624b73d39d6e22, type: 3}
     type: 1
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0001}
   - sprite: {fileID: 21300000, guid: 4fc0bbf185068ff418e8f4214e5f64f8, type: 3}
     type: 1
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0002}
   - sprite: {fileID: 21300000, guid: 8e0444ddb7dfa014f883bb8780d6d714, type: 3}
     type: 1
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0002}
   _label: "\uB4C0\uC624"
   _id: 20
   _size: {x: 1, y: 1}

@@ -12,6 +12,7 @@ public class UserInterfaceManager : MonoBehaviour
     [SerializeField] private SelectedPainter _selectedPainter;
     [SerializeField] private DesignBatchBuilder _designBatchBuilder;
     [SerializeField] private DesignPainter _designPainter;
+    [SerializeField] private DemolishAreaPainter _demolishAreaPainter;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -28,6 +29,7 @@ public class UserInterfaceManager : MonoBehaviour
         _selectedPainter.Verification();
         _designBatchBuilder.Verification();
         _designPainter.Verification();
+        _demolishAreaPainter.Verification();
     }
     // 외부에 전달할 데이터 생성
     public void DataBuilder()
@@ -41,11 +43,12 @@ public class UserInterfaceManager : MonoBehaviour
         }
         _selectedBatchBuilder.Initialize();
         _designBatchBuilder.Initialize();
+        _demolishAreaPainter.Initialize();
     }
     // 마스터 매니저의 Update() 에서 호출할 메서드
     public void RunBeforeFrame()
     {
-
+        
     }
     // 마스터 매니저의 LateUpdate() 에서 호출할 메서드
     public void RunAfterFrame()
@@ -54,6 +57,7 @@ public class UserInterfaceManager : MonoBehaviour
         _selectedPainter.RunAfterFrame();
         _designBatchBuilder.RunAfterFrame();
         _designPainter.RunAfterFrame();
+        _demolishAreaPainter.RunAfterFrame();
     }
     #endregion
 }

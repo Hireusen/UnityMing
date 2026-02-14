@@ -205,14 +205,4 @@ public partial class PlayerArchitect
         _selecteds.Clear();
     }
 
-    // --- 취소 ---
-    private void OnCancel(Vector2 pos)
-    {
-        if (EventSystem.current.IsPointerOverGameObject())
-            return;
-        _dragCopy = false;
-        _dragPlacer = false;
-        _selecteds.Clear();
-        _stretchOriginal = default;
-    }
 }

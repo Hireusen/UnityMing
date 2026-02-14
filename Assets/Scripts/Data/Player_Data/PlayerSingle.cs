@@ -23,7 +23,14 @@ public class PlayerSingle
     // 선택 블록 (마우스를 따라다니는 미리보기)
     public readonly List<SelectedBlock> selecteds;
     // 디자인 블록 (맵에 설치된 건설 예정 블록)
-    public Dictionary<int, BuildOrder> designs; // 이 셀에 지을거야
+    public Dictionary<int, BuildOrder> designs;
+
+    // 철거 영역 시각화
+    public bool demolishActive;
+    public int demolishMinX;
+    public int demolishMinY;
+    public int demolishMaxX;
+    public int demolishMaxY;
     #endregion
 
     #region ─────────────────────────▶ 생성자 ◀─────────────────────────
@@ -39,6 +46,7 @@ public class PlayerSingle
         this.CursorMoved = false;
         this.selecteds = new List<SelectedBlock>(capacity);
         this.designs = new Dictionary<int, BuildOrder>(capacity);
+        this.demolishActive = false;
     }
     #endregion
 
