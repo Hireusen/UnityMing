@@ -8,7 +8,7 @@ public class SO_Effect : SO_Matter
     public EEffect ID => _id;
     [SerializeField] protected Vector2 _size = new Vector2(1f, 1f);
     public Vector2 Size => _size;
-
+    
     [Header("애니메이션")]
     [SerializeField] float _frameTime;
     public float FrameTime => _frameTime;

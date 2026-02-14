@@ -3,7 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// 유저 인터페이스 매니저 오브젝트에 부착하는 C# 스크립트입니다.
-/// 매 프레임 designs 딕셔너리를 순회하여 디자인 블록(건설 예정 블록)의 렌더링 배치 데이터를 구성합니다.
+/// 매 프레임 designs를 순회하여 디자인 블록(건설 예정 블록)의 렌더링 배치 데이터를 구성합니다.
+/// sequence 리스트를 직접 순회하므로 키 버퍼 할당이 없습니다.
 /// </summary>
 public class DesignBatchBuilder : MonoBehaviour
 {
@@ -20,16 +21,15 @@ public class DesignBatchBuilder : MonoBehaviour
     private Dictionary<EBlock, SO_Block> _soCache;
     private Dictionary<BlockSpriteKey, List<List<Matrix4x4>>> _batchMap;
     private List<BlockSpriteKey> _activeKeys;
-    private List<int> _keyBuffer;
     #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 접근 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 접근자 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public Dictionary<BlockSpriteKey, Material> MaterialCache => _materialCache;
     public Dictionary<BlockSpriteKey, List<List<Matrix4x4>>> BatchMap => _batchMap;
     public List<BlockSpriteKey> ActiveKeys => _activeKeys;
     #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public void Verification()
     {
         De.IsNull(_baseMaterial);
@@ -41,27 +41,25 @@ public class DesignBatchBuilder : MonoBehaviour
         _soCache = new Dictionary<EBlock, SO_Block>();
         _batchMap = new Dictionary<BlockSpriteKey, List<List<Matrix4x4>>>();
         _activeKeys = new List<BlockSpriteKey>();
-        _keyBuffer = new List<int>();
     }
 
     private SO_Block GetSO(EBlock id)
     {
         if (_soCache.TryGetValue(id, out SO_Block so))
             return so;
-        var database = GameData.ins.BlockDatabase;
-        if (!database.TryGetValue(id, out so))
+        if (!GameData.ins.BlockDatabase.TryGetValue(id, out so))
             return null;
         _soCache.Add(id, so);
         return so;
     }
 
-    private Material GetOrCreateMaterial(BlockSpriteKey key, SpriteInfo info)
+    private Material GetOrCreateMaterial(BlockSpriteKey key, Sprite sprite)
     {
         if (_materialCache.TryGetValue(key, out Material mat))
             return mat;
-        if (De.IsNull(info.sprite))
+        if (sprite == null)
             return null;
-        mat = UGraphic.CreateMaterial(_baseMaterial, info.sprite);
+        mat = UGraphic.CreateMaterial(_baseMaterial, sprite);
         Color color = mat.color;
         color.a = _alpha;
         mat.color = color;
@@ -70,7 +68,8 @@ public class DesignBatchBuilder : MonoBehaviour
     }
 
     /// <summary>
-    /// 매 프레임 designs 딕셔너리를 순회하여 렌더링 배치 데이터를 재구성합니다.
+    /// 매 프레임 designs를 순회하여 렌더링 배치 데이터를 재구성합니다.
+    /// sequence 리스트를 직접 순회 — GC 할당 없음
     /// </summary>
     public void RunAfterFrame()
     {
@@ -79,22 +78,19 @@ public class DesignBatchBuilder : MonoBehaviour
         if (De.IsNull(game.Player)) return;
 
         var designs = game.Player.designs;
-        int width = game.TileMap.Width;
+        int count = designs.Count;
 
         UGraphic.ClearBatches(_batchMap, _activeKeys);
 
-        if (designs.Count <= 0)
+        if (count <= 0)
             return;
 
-        // 딕셔너리 순회용 키 버퍼
-        _keyBuffer.Clear();
-        foreach (var key in designs.Keys) {
-            _keyBuffer.Add(key);
-        }
+        BlockMap blockMap = game.Blocks;
+        int width = blockMap.Width;
 
-        for (int i = 0; i < _keyBuffer.Count; ++i) {
-            int index = _keyBuffer[i];
-            BuildOrder order = designs[index];
+        foreach(var index in designs.Keys) {
+            if (!designs.TryGetValue(index, out BuildOrder order))
+                continue;
             if (order.type != EOrderType.Build)
                 continue;
 
@@ -103,24 +99,24 @@ public class DesignBatchBuilder : MonoBehaviour
             if (so == null)
                 continue;
 
-            // 인덱스를 월드 좌표로 변환 (셀 중심)
-            (int gridX, int gridY) = UGrid.IndexToGrid(index, width);
-            float baseX = gridX + 0.5f;
-            float baseY = gridY + 0.5f;
+            Vector2Int size = new Vector2Int((int)so.Size.x, (int)so.Size.y);
 
-            // 블록 설치 방향 각도
-            float blockAngle = UGraphic.RotateToAngle(order.rotate);
+            // GetRenderPos로 정확한 렌더링 중심 계산
+            Vector2 renderPos = blockMap.GetRenderPos(index, size, order.rotation);
+            float baseX = renderPos.x;
+            float baseY = renderPos.y;
+
+            float blockAngle = UGrid.RotationToAngle(order.rotation);
 
             int spriteCount = so.SpriteCount;
             for (int si = 0; si < spriteCount; ++si) {
                 SpriteInfo info = so.GetSpriteInfo(si);
                 BlockSpriteKey spriteKey = new BlockSpriteKey(id, si);
 
-                GetOrCreateMaterial(spriteKey, info);
+                GetOrCreateMaterial(spriteKey, info.sprite);
 
-                float posZ = -20f + info.offset.z;
+                float posZ = -30.5f + info.offset.z;
 
-                // 디자인 상태에서는 모든 부품이 블록 방향으로만 회전
                 Quaternion rot;
                 switch (info.type) {
                     case ESpriteType.Body:
@@ -128,21 +124,13 @@ public class DesignBatchBuilder : MonoBehaviour
                     case ESpriteType.Rotation:
                         rot = UGraphic.AngleToQuaternion(blockAngle);
                         break;
-                    case ESpriteType.Static:
                     default:
                         rot = Quaternion.identity;
                         break;
                 }
 
-                // 오프셋을 블록 방향으로 회전
                 Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
-
-                // 짝수 크기 블록의 중심 보정
-                float sizeX = so.Size.x;
-                if (sizeX % 2f <= 0.001f) pos.x -= 0.5f;
-                float sizeY = so.Size.y;
-                if (sizeY % 2f <= 0.001f) pos.y -= 0.5f;
-                Vector3 scale = new Vector3(sizeX, sizeY, 1f);
+                Vector3 scale = new Vector3(so.Size.x, so.Size.y, 1f);
 
                 Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
                 UGraphic.AddMatrix(_batchMap, _activeKeys, spriteKey, matrix);

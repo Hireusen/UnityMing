@@ -13,11 +13,11 @@ public class UGrid
     /// <param name="pos"></param>
     /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Vector2 WorldToGrid(Vector2 pos)
+    public static Vector2Int WorldToGrid(Vector2 pos)
     {
         pos.x = Mathf.FloorToInt(pos.x);
         pos.y = Mathf.FloorToInt(pos.y);
-        return pos;
+        return new Vector2Int((int)pos.x, (int)pos.y);
     }
 
     /// <summary>

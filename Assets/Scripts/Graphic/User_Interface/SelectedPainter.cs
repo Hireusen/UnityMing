@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// 블록 그래픽 매니저 오브젝트에 부착하는 C# 스크립트입니다.
+/// 유저 인터페이스 매니저 오브젝트에 부착하는 C# 스크립트입니다.
 /// SelectedBatchBuilder가 구성한 배치 데이터를 DrawMeshInstanced로 그립니다.
 /// </summary>
 public class SelectedPainter : MonoBehaviour
@@ -12,7 +12,7 @@ public class SelectedPainter : MonoBehaviour
     [SerializeField] private SelectedBatchBuilder _batchBuilder;
     #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public void Verification()
     {
         De.IsNull(_mesh);

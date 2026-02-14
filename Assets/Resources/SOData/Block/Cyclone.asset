@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc37a5a3c63f4a1409cda5614aca4ad3, type: 3}
+  m_Name: Cyclone
+  m_EditorClassIdentifier: 
+  _sprite:
+  - sprite: {fileID: 21300000, guid: a411ee34b9bba0d4f8af3e886bc3180e, type: 3}
+    type: 3
+    offset: {x: 0, y: 0, z: 0}
+  - sprite: {fileID: 21300000, guid: b3dd5769499602748a380562899edda7, type: 3}
+    type: 1
+    offset: {x: 0, y: 0, z: 0}
+  - sprite: {fileID: 21300000, guid: 9720b1295b853634893dea580e1c74db, type: 3}
+    type: 2
+    offset: {x: 0, y: 0, z: 0}
+  - sprite: {fileID: 21300000, guid: 55b840485a1328e43bf71791d87ff8b8, type: 3}
+    type: 2
+    offset: {x: 0, y: 0, z: 0}
+  - sprite: {fileID: 21300000, guid: c4cc8cbea24b58e48989b87af6fb6246, type: 3}
+    type: 2
+    offset: {x: 0, y: 0, z: 0}
+  _label: "\uC0AC\uC774\uD074\uB860"
+  _id: 34
+  _size: {x: 3, y: 3}
+  _rotatable: 1
+  _connection: 0

@@ -22,7 +22,7 @@ public class CameraZoom : MonoBehaviour
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     float _desiredSize;
-    Dictionary<int, SelectedBlock> _selected;
+    List<SelectedBlock> _selected;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -34,7 +34,7 @@ public class CameraZoom : MonoBehaviour
     public void Initialize()
     {
         // 캐싱
-        _selected = GameData.ins.Player.selectedBlockList;
+        _selected = GameData.ins.Player.selecteds;
         _desiredSize = (_minSize + _maxSize) * 0.5f;
         // 이벤트 구독
         _input.OnScrollUp += ZoomIn;

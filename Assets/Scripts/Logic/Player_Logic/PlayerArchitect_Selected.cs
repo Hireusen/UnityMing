@@ -1,207 +1,218 @@
-﻿using System.Linq;
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.EventSystems;
+
 /// <summary>
-/// 블록 선택하기 (건설 UI, 카피)
+/// 블록 선택 · 복사 · 회전 · 드래그 배치
+/// List 기반 — 매 프레임 GC 할당 없음
 /// </summary>
 public partial class PlayerArchitect
 {
-    // 해당 좌표에 존재하는 블록을 selected로 복사한다.
-    private void TryOnceCopy(int index, Vector2 offset)
-    {
-        /*// 맵 이내 & 블럭 존재
-        if (!UGrid.InMap(index, _width, _height))
-            return;
-        if (!_blockMap.IsExist(index))
-            return;
-        // 호스트의 인덱스로 설정
-        int hostIndex;
-        if (_blockMap.IsRef(index)) {
-            Vector2 hostPos = _blockMap.GetHostBlock(index);
-            hostIndex = UGrid.GridToIndex(hostPos, _width);
-        } else {
-            hostIndex = index;
-        }
-        // 자리를 차지하지 않은 블록
-        if (_selectedList.ContainsKey(hostIndex))
-            return;
-        // 호스트 블록을 저장
-        int defaultAdress = _blockArray[hostIndex].defaultAdress;
-        ref readonly BlockDefault block = ref _game.BlockPool.GetReadonly(defaultAdress);
-        _selectedList.Add(hostIndex, new SelectedBlock(offset, block.id, block.rotate));
-        De.Print($"현재 마우스 위치의 블록({block.id})을 카피했습니다.");*/
-    }
+    // ================================================================
+    //  복사: 기존 블록 → Selected
+    // ================================================================
 
-    // 두 좌표를 기준으로 존재하는 블록을 selected로 복사한다.
-    private void TryForeachCopy(Vector2 startPos, Vector2 endPos)
+    /// <summary>
+    /// 해당 좌표에 존재하는 블록 1개를 selected로 복사합니다.
+    /// </summary>
+    private void TryCopySingle(int index, float offsetX, float offsetY)
     {
-        // 변수 준비
-        int minX, minY, maxX, maxY;
-        (minX, minY, maxX, maxY) = UGrid.GetForeachPos(startPos, endPos);
-        Vector2 mouse = Tool.GetMousePos(_camera);
-        Vector2 centerPos = UGrid.WorldToGrid(mouse); // 월드 좌표
-        Vector2 centerGrid = new Vector2((minX + maxX) / 2, (minY + maxY) / 2);
-        // 해당 영역의 블록 모두 읽기
-        for (int y = minY; y <= maxY; ++y) {
-            for (int x = minX; x <= maxX; ++x) {
-                int index = UGrid.GridToIndex(x, y, _width);
-                Vector2 localGrid = centerGrid;
-                localGrid.x -= x;
-                localGrid.y -= y;
-                TryOnceCopy(index, localGrid);
-            }
-        }
-        De.Print($"범위 복사를 실행합니다. ({minX}, {minY}) ─ ({maxX}, {maxY})");
+        if (!_blockMap.InMap(index))
+            return;
+        if (_blockMap.IsVoid(index))
+            return;
+        int adress = _blockMap.GetAdress(index);
+        ref readonly BlockSingle block = ref _blockPool.Read(adress);
+        _selecteds.Add(new SelectedBlock(offsetX, offsetY, block.id, block.rotation));
     }
 
     /// <summary>
-    /// 선택한 블록 1개를 드래그 영역에 직사각형 형태로 복제합니다.
-    /// 매 프레임 호출되므로 _selectedList를 완전히 재구성합니다.
+    /// 두 좌표 사이의 모든 블록을 selected로 복사합니다.
+    /// 큰 블록의 중복 등록을 방지하기 위해 adress 기반 검사를 합니다.
+    /// </summary>
+    private void TryCopyRange(Vector2 startPos, Vector2 endPos)
+    {
+        (int minX, int minY, int maxX, int maxY) = UGrid.GetForeachPos(startPos, endPos);
+        float centerX = (minX + maxX) * 0.5f;
+        float centerY = (minY + maxY) * 0.5f;
+        _copyAdressSet.Clear();
+        for (int y = minY; y <= maxY; ++y) {
+            for (int x = minX; x <= maxX; ++x) {
+                int index = UGrid.GridToIndex(x, y, _width);
+                if (!_blockMap.InMap(index))
+                    continue;
+                if (_blockMap.IsVoid(index))
+                    continue;
+                int adress = _blockMap.GetAdress(index);
+                if (!_copyAdressSet.Add(adress))
+                    continue;
+                ref readonly BlockSingle block = ref _blockPool.Read(adress);
+                float ox = centerX - x;
+                float oy = centerY - y;
+                _selecteds.Add(new SelectedBlock(ox, oy, block.id, block.rotation));
+            }
+        }
+    }
+
+    // 복사 시 중복 방지용 (Initialize에서 할당, 이후 재사용)
+    private System.Collections.Generic.HashSet<int> _copyAdressSet;
+
+    // ================================================================
+    //  드래그 배치: Selected 1개를 영역에 타일링
+    // ================================================================
+
+    /// <summary>
+    /// 선택된 블록 1개를 드래그 영역에 직사각형 형태로 타일링합니다.
+    /// 매 프레임 호출 — GC 할당 없음
     /// </summary>
     private void RenewalStretchSelected(Vector2 startPos, Vector2 endPos)
     {
-        // 변화가 있을 경우만
         if (!_player.CursorMoved)
             return;
-        // 선택된 블록이 없으면 무시
-        if (_selectedList.Count <= 0)
+        if (_stretchOriginal.IsVoid())
             return;
-        // 첫 번째 블록 정보를 보존
-        int firstKey = _selectedList.Keys.First();
-        SelectedBlock original = _selectedList[firstKey];
-        if (original.IsVoid())
-            return;
-        // SO 데이터에서 블록 크기 가져오기
-        EBlock id = original.id;
-        if (!_blockSO.TryGetValue(id, out SO_Block so))
+        if (!_blockSO.TryGetValue(_stretchOriginal.id, out SO_Block so))
             return;
         int sizeX = Mathf.Max(1, (int)so.Size.x);
         int sizeY = Mathf.Max(1, (int)so.Size.y);
-        // 회전 상태에 따라 크기 스왑
-        if (original.rotate == ERotation.Right || original.rotate == ERotation.Left) {
+        // 회전 시 크기 스왑
+        if (_stretchOriginal.rotation == ERotation.Right || _stretchOriginal.rotation == ERotation.Left) {
             int tmp = sizeX;
             sizeX = sizeY;
             sizeY = tmp;
         }
-        // 드래그 영역 계산
-        int minX, minY, maxX, maxY;
-        (minX, minY, maxX, maxY) = UGrid.GetForeachPos(startPos, endPos);
-        // 시작 그리드 좌표 (offset 기준점)
+        (int minX, int minY, int maxX, int maxY) = UGrid.GetForeachPos(startPos, endPos);
         Vector2 startGrid = UGrid.WorldToGrid(startPos);
-        // 기존 선택 목록 초기화 후 영역 채우기
-        _selectedList.Clear();
+        float sgx = startGrid.x;
+        float sgy = startGrid.y;
+        _selecteds.Clear();
         for (int y = minY; y <= maxY; y += sizeY) {
             for (int x = minX; x <= maxX; x += sizeX) {
-                int index = UGrid.GridToIndex(x, y, _width);
-                // 맵 이내 검사
-                if (!UGrid.InMap(x, y, _width, _height))
+                if (x < 0 || _width <= x || y < 0 || _height <= y)
                     continue;
-                // 이미 등록된 키 중복 방지
-                if (_selectedList.ContainsKey(index))
-                    continue;
-                // offset: 시작점(마우스 클릭 위치) 기준 상대 좌표
-                Vector2 offset = new Vector2(startGrid.x - x, startGrid.y - y);
-                _selectedList.Add(index, new SelectedBlock(offset, original.id, original.rotate));
+                _selecteds.Add(new SelectedBlock(
+                    sgx - x, sgy - y,
+                    _stretchOriginal.id, _stretchOriginal.rotation
+                ));
             }
         }
     }
 
+    // ================================================================
+    //  회전
+    // ================================================================
+
     private void TrySelectedRotate(bool clockwise)
     {
-        // 선택한 블럭 존재
-        int count = _selectedList.Count;
+        int count = _selecteds.Count;
         if (count <= 0)
             return;
-        // 회전 쿨타임
         if (Time.unscaledTime < _nextRotateTime)
             return;
         _nextRotateTime = Time.unscaledTime + _rotateInterval;
-        // 변수 준비
-        float radian = Mathf.Deg2Rad;
-        if (clockwise) radian *= 90f;
-        else radian *= 270f;
-        // 선택된 모든 블록 회전
-        int[] keys = new int[count];
-        _selectedList.Keys.CopyTo(keys, 0);
+        float sin, cos;
+        if (clockwise) { sin = 1f; cos = 0f; } else { sin = -1f; cos = 0f; }
         for (int i = 0; i < count; ++i) {
-            int key = keys[i];
-            SelectedBlock tmp = _selectedList[key];
-            tmp.offset = UMath.Rotate(tmp.offset, radian);
-            if (clockwise)
-                tmp.rotate = UGrid.ClockwisERotation(tmp.rotate);
-            else
-                tmp.rotate = UGrid.CounterClockwisERotation(tmp.rotate);
-            _selectedList[key] = tmp;
+            SelectedBlock sel = _selecteds[i];
+            float ox = sel.offsetX * cos - sel.offsetY * sin;
+            float oy = sel.offsetX * sin + sel.offsetY * cos;
+            sel.offsetX = ox;
+            sel.offsetY = oy;
+            sel.rotation = clockwise
+                ? UGrid.RotateCW(sel.rotation)
+                : UGrid.RotateCCW(sel.rotation);
+            _selecteds[i] = sel;
         }
-        De.Print($"선택 블록을 {radian * Mathf.Rad2Deg}도 만큼 회전했습니다.");
+        if (!_stretchOriginal.IsVoid()) {
+            _stretchOriginal.rotation = clockwise
+                ? UGrid.RotateCW(_stretchOriginal.rotation)
+                : UGrid.RotateCCW(_stretchOriginal.rotation);
+        }
     }
 
-    private void TrySelectedRotateUp()
+    // ================================================================
+    //  이벤트 핸들러
+    // ================================================================
+
+    private void OnRotateCW() => TrySelectedRotate(true);
+    private void OnRotateCCW() => TrySelectedRotate(false);
+
+    // --- 단일 클릭 배치 ---
+    private void OnPlaceOnce(Vector2 pos)
     {
-        TrySelectedRotate(true);
+        // UI 위에서 클릭한 경우 무시 (건설 버튼 클릭과 충돌 방지)
+        if (EventSystem.current.IsPointerOverGameObject())
+            return;
+        if (_selecteds.Count <= 0)
+            return;
+        //TrySelectedToDesign(pos);
+        TrySelectedToDesign();
+        _selecteds.Clear();
     }
 
-    private void TrySelectedRotateDown()
+    // --- 드래그 배치 ---
+    private void OnPlaceDrag(Vector2 startPos, Vector2 endPos)
     {
-        TrySelectedRotate(false);
+        if (EventSystem.current.IsPointerOverGameObject())
+            return;
+        if (_dragCopy)
+            return;
+        if (!_dragPlacer) {
+            _dragPlacer = true;
+            if (_selecteds.Count > 0)
+                _stretchOriginal = _selecteds[0];
+        }
+        RenewalStretchSelected(startPos, endPos);
     }
 
-    private void CopyBlock(Vector2 clickPos)
+    private void OnPlaceDragEnd(Vector2 startPos, Vector2 endPos)
     {
+        if (_dragCopy)
+            return;
+        _dragPlacer = false;
+        TrySelectedToDesign();
+        _selecteds.Clear();
+        _stretchOriginal = default;
+    }
+
+    // --- 단일 복사 ---
+    private void OnCopyOnce(Vector2 clickPos)
+    {
+        if (EventSystem.current.IsPointerOverGameObject())
+            return;
         if (_dragCopy || _dragPlacer)
             return;
-        // 실행
+        _selecteds.Clear();
         int index = UGrid.WorldToIndex(clickPos, _width);
-        _selectedList.Clear();
-        TryOnceCopy(index, Vector2.zero);
+        TryCopySingle(index, 0f, 0f);
     }
 
-    private void CopyBlockDrag(Vector2 startPos, Vector2 endPos)
+    // --- 드래그 복사 ---
+    private void OnCopyDrag(Vector2 startPos, Vector2 endPos)
     {
         if (_dragPlacer)
             return;
         _dragCopy = true;
-        // 실행
-        _selectedList.Clear();
-        TryForeachCopy(startPos, endPos);
+        _selecteds.Clear();
+        TryCopyRange(startPos, endPos);
     }
 
-    private void CopyBlockDragEnd(Vector2 startPos, Vector2 endPos)
+    private void OnCopyDragEnd(Vector2 startPos, Vector2 endPos)
     {
         if (_dragPlacer)
             return;
         _dragCopy = false;
-        // 실행
-        Vector2 center = Tool.GetMousePos(_camera);
-        TrySelectedToDesign(center);
-        _selectedList.Clear();
+        TrySelectedToDesign();
+        _selecteds.Clear();
     }
 
-    private void SelectedPlacerDrag(Vector2 startPos, Vector2 endPos)
+    // --- 취소 ---
+    private void OnCancel(Vector2 pos)
     {
-        if (_dragCopy)
+        if (EventSystem.current.IsPointerOverGameObject())
             return;
-        _dragPlacer = true;
-        // 실행
-        RenewalStretchSelected(startPos, endPos);
-    }
-
-    private void SelectedPlacerDragEnd(Vector2 startPos, Vector2 endPos)
-    {
-        if (_dragCopy)
-            return;
-        _dragPlacer = false;
-        // 실행
-        Vector2 center = Tool.GetMousePos(_camera);
-        TrySelectedToDesign(center);
-        _selectedList.Clear();
-        De.Print($"선택 드래그가 종료되었습니다.");
-    }
-
-    private void SelectedCancel(Vector2 pos)
-    {
-        De.Print($"선택 블록({_selectedList.Count})을 청소했습니다.");
         _dragCopy = false;
         _dragPlacer = false;
-        _selectedList.Clear();
+        _selecteds.Clear();
+        _stretchOriginal = default;
     }
 }

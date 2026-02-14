@@ -34,7 +34,7 @@ public class PlayerLogicManager : MonoBehaviour
     public void DataBuilder()
     {
         _playerDataBuilder.DataBuilder();
-        _playerArchitect.DataBuilder();
+        //_playerArchitect.DataBuilder();
     }
     // 마스터 매니저의 Update() 에서 호출할 메서드
     public void RunBeforeFrame()

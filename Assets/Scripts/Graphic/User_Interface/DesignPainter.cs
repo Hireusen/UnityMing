@@ -12,7 +12,7 @@ public class DesignPainter : MonoBehaviour
     [SerializeField] private DesignBatchBuilder _batchBuilder;
     #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public void Verification()
     {
         De.IsNull(_mesh);

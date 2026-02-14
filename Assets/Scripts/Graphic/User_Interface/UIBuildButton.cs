@@ -12,7 +12,7 @@ public class UIBuildButton : MonoBehaviour
     [SerializeField] private EBlock _blockID;
     #endregion
 
-    Dictionary<int, SelectedBlock> _selectedList;
+    List<SelectedBlock> _selecteds;
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     // 스크립트 내부 변수 초기화
@@ -21,7 +21,7 @@ public class UIBuildButton : MonoBehaviour
         var game = GameData.ins;
         if (De.IsNull(game)) return;
         if (De.IsNull(game.Player)) return;
-        _selectedList = game.Player.selectedBlockList;
+        _selecteds = game.Player.selecteds;
     }
 
     /// <summary>
@@ -30,10 +30,10 @@ public class UIBuildButton : MonoBehaviour
     public void OnClickSelect()
     {
         // 기존 선택 초기화
-        _selectedList.Clear();
+        _selecteds.Clear();
         // 블록 1개 선택
-        SelectedBlock selected = new SelectedBlock(Vector2.zero, _blockID, ERotation.Up);
-        _selectedList.Add(0, selected);
+        SelectedBlock selected = new SelectedBlock(0f, 0f, _blockID, ERotation.Up);
+        _selecteds.Add(selected);
         De.Print($"블록({_blockID})을 선택했습니다.");
     }
     #endregion

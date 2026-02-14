@@ -1,83 +1,153 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
+
 /// <summary>
-/// 선택한 블록 디자인 블록으로 넘기기
+/// 선택한 블록을 디자인 블록(건설 예정)으로 전환하기
+///
+/// _designOccupied: 디자인 점유맵 (맵 크기 배열)
+///   값 = 해당 셀을 점유한 디자인 블록의 중심 인덱스
+///   -1 = 비점유
 /// </summary>
 public partial class PlayerArchitect
 {
-    private void TrySelectedToDesign(Vector2 center)
+    // ================================================================
+    //  내부 변수
+    // ================================================================
+    private int[] _designOccupied;      // 디자인 점유맵 (길이 = width * height)
+    private int[] _designCellBuffer;    // GetOccupiedCells 재사용 버퍼 (최대 6×6)
+
+    // ================================================================
+    //  초기화 (PlayerArchitect.Initialize()에서 호출)
+    // ================================================================
+    public void InitializeDesign()
     {
-        BuildOrder order = new BuildOrder(-1, EOrderType.Build, EBlock.None, ERotation.None);
-        foreach (var selected in _selectedList.Values) { // 여기에 Ref는 저장 안함
-            // 배치할 실제 좌표 구하기
-            Vector2 pos = center + selected.offset;
-            int index = UGrid.WorldToIndex(pos, _width);
-            // 배치 가능한지 확인
-            if (_blockMap.IsExist(index))
+        int length = _width * _height;
+        _designOccupied = new int[length];
+        for (int i = 0; i < length; ++i)
+            _designOccupied[i] = -1;
+        _designCellBuffer = new int[36];
+    }
+
+    // ================================================================
+    //  Selected → Design 전환
+    // ================================================================
+
+    /// <summary>
+    /// 현재 selecteds의 블록들을 디자인 블록으로 월드에 배치합니다.
+    /// SelectedBatchBuilder와 동일한 좌표 동기화를 사용합니다.
+    /// </summary>
+    private void TrySelectedToDesign()
+    {
+        int selCount = _selecteds.Count;
+        if (selCount <= 0)
+            return;
+
+        Vector2 cursor = _player.CursorInGrid;
+        float cx = cursor.x;
+        float cy = cursor.y;
+
+        for (int i = 0; i < selCount; ++i) {
+            SelectedBlock sel = _selecteds[i];
+            if (sel.id == EBlock.None)
                 continue;
-            Vector2Int size = _blockSO[selected.id].Size;
-            ERotation rotate = selected.rotate;
-            if (!_blockMap.CanPlace(index, selected.id, rotate))
+
+            // SelectedBatchBuilder와 동일한 스냅
+            int gx = Mathf.FloorToInt(cx + sel.offsetX);
+            int gy = Mathf.FloorToInt(cy + sel.offsetY);
+
+            // 2차원 범위 검사
+            if (gx < 0 || _width <= gx || gy < 0 || _height <= gy)
                 continue;
-            // 디자인 블록은 덮어씌우기
-            (int startX, int endX, int startY, int endY) = UGrid.GetLoopBlock(index, size, rotate, _width, _height);
-            for (int loopY = startY; loopY <= endY; ++loopY) {
-                for (int loopX = startX; loopX <= endX; ++loopX) {
-                    int loopIndex = UGrid.GridToIndex(loopX, loopY, _width);
-                    if (_designs.ContainsKey(loopIndex)) {
-                        _designs.Remove(loopIndex);
-                    }
+
+            int centerIndex = UGrid.GridToIndex(gx, gy, _width);
+
+            // SO에서 블록 크기
+            if (!_blockSO.TryGetValue(sel.id, out SO_Block so))
+                continue;
+            Vector2Int size = new Vector2Int((int)so.Size.x, (int)so.Size.y);
+
+            // 이 블록이 점유할 모든 셀 계산
+            int cellCount = _blockMap.GetOccupiedCells(centerIndex, size, sel.rotation, _designCellBuffer);
+            if (cellCount <= 0)
+                continue;
+
+            // ──────────────────────────────────
+            // 검사: 실제 블록과 겹치면 스킵
+            // ──────────────────────────────────
+            bool blockedByReal = false;
+            for (int c = 0; c < cellCount; ++c) {
+                if (_blockMap.IsExist(_designCellBuffer[c])) {
+                    blockedByReal = true;
+                    break;
                 }
             }
-            // 디자인 블록으로 등록
-            order.index = index;
-            order.id = selected.id;
-            order.rotate = selected.rotate;
-            _designs.Add(index, order);
-        }
-        De.Print($"SelectedList({_selectedList.Count})를 Design으로 변환했습니다.");
-    }
+            if (blockedByReal)
+                continue;
 
-    private void RemoveDesignOnce(int index)
-    {
-        // 자리를 차지한 디자인 블록
-        if (!_designs.ContainsKey(index))
-            return;
-        _designs.Remove(index);
-    }
-
-    private void RemoveDesignOnce(Vector2 pos)
-    {
-        int index = UGrid.WorldToIndex(pos, _width);
-        // 자리를 차지한 디자인 블록
-        if (!_designs.ContainsKey(index))
-            return;
-        _designs.Remove(index);
-    }
-
-    private void RemoveDesignForeach(Vector2 startPos, Vector2 endPos)
-    {
-        // 변수 준비
-        int minX, minY, maxX, maxY;
-        (minX, minY, maxX, maxY) = UGrid.GetForeachPos(startPos, endPos);
-        Vector2 mouse = Tool.GetMousePos(_camera);
-        Vector2 centerPos = UGrid.WorldToGrid(mouse); // 월드 좌표
-        Vector2 centerGrid = new Vector2((minX + maxX) / 2, (minY + maxY) / 2);
-        // 해당 영역의 디자인 블록 삭제
-        for (int y = minY; y <= maxY; ++y) {
-            for (int x = minX; x <= maxX; ++x) {
-                int index = UGrid.GridToIndex(x, y, _width);
-                Vector2 localGrid = centerGrid;
-                localGrid.x -= x;
-                localGrid.y -= y;
-                RemoveDesignOnce(index);
+            // 검사: 지상 타일이 아니면 스킵
+            bool blockedByTile = false;
+            TileMap tile = _game.TileMap;
+            for (int c = 0; c < cellCount; ++c) {
+                if (!tile.IsGround(_designCellBuffer[c])) {
+                    blockedByTile = true;
+                    break;
+                }
             }
+            if (blockedByTile)
+                continue;
+
+            // ──────────────────────────────────
+            // 겹치는 기존 디자인 제거
+            // ──────────────────────────────────
+            for (int c = 0; c < cellCount; ++c) {
+                int occupiedBy = _designOccupied[_designCellBuffer[c]];
+                if (occupiedBy != -1 && occupiedBy != centerIndex)
+                    RemoveDesign(occupiedBy);
+            }
+
+            // ──────────────────────────────────
+            // 새 디자인 등록
+            // ──────────────────────────────────
+            BuildOrder order = new BuildOrder(centerIndex, EOrderType.Build, sel.id, sel.rotation);
+            _designs[centerIndex] = order;
+
+            // 점유맵 기록
+            for (int c = 0; c < cellCount; ++c)
+                _designOccupied[_designCellBuffer[c]] = centerIndex;
         }
-        De.Print($"범위 삭제(디자인)를 실행합니다. ({minX}, {minY}) ─ ({maxX}, {maxY})");
     }
 
-    private void ClearDesign()
+    // ================================================================
+    //  디자인 제거
+    // ================================================================
+
+    /// <summary>
+    /// 중심 인덱스로 디자인 블록 1개를 제거합니다.
+    /// designs + 점유맵 양쪽에서 해제합니다.
+    /// </summary>
+    private void RemoveDesign(int centerIndex)
     {
-        _player.ClearBuild();
+        if (!_designs.TryGetValue(centerIndex, out BuildOrder order))
+            return;
+
+        // 점유맵에서 해제
+        if (_blockSO.TryGetValue(order.id, out SO_Block so)) {
+            Vector2Int size = new Vector2Int((int)so.Size.x, (int)so.Size.y);
+            int cellCount = _blockMap.GetOccupiedCells(centerIndex, size, order.rotation, _designCellBuffer);
+            for (int c = 0; c < cellCount; ++c)
+                _designOccupied[_designCellBuffer[c]] = -1;
+        }
+
+        _designs.Remove(centerIndex);
+    }
+
+    /// <summary>
+    /// 디자인 블록을 모두 제거합니다.
+    /// </summary>
+    public void ClearAllDesigns()
+    {
+        _designs.Clear();
+        int length = _designOccupied.Length;
+        for (int i = 0; i < length; ++i)
+            _designOccupied[i] = -1;
     }
 }

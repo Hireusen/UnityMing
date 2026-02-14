@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fc37a5a3c63f4a1409cda5614aca4ad3, type: 3}
-  m_Name: Copper_Big_Wall
+  m_Name: Kiln
   m_EditorClassIdentifier: 
   _sprite:
-  - sprite: {fileID: 21300000, guid: 32b24f230e121c043b22b355b18c642f, type: 3}
+  - sprite: {fileID: 21300000, guid: c2eb25c33efdbf54c8e7fb2160cf1a9e, type: 3}
     type: 3
     offset: {x: 0, y: 0, z: 0}
-  _label: "\uAD6C\uB9AC \uB300\uD615 \uBCBD"
-  _id: 57
+  _label: "\uAC00\uB9C8"
+  _id: 42
   _size: {x: 2, y: 2}
   _rotatable: 1
   _connection: 0
