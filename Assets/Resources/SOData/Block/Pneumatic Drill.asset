@@ -17,13 +17,17 @@ MonoBehaviour:
     type: 3
     offset: {x: 0, y: 0, z: 0}
   - sprite: {fileID: 21300000, guid: 54af65415ec12e9419173e758e81c47d, type: 3}
-    type: 2
-    offset: {x: 0, y: 0, z: 0}
+    type: 4
+    offset: {x: 0, y: 0, z: -0.0001}
   - sprite: {fileID: 21300000, guid: c0eddf948b0dfd344993ebfbb2f2ecbc, type: 3}
     type: 4
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0002}
   _label: "\uACF5\uC555 \uB4DC\uB9B4"
   _id: 5
   _size: {x: 2, y: 2}
   _rotatable: 1
   _connection: 0
+  _bodyRotateSpeed: 5
+  _turretRotateSpeed: 135
+  _rotationSpeed: 135
+  _effectCycleTime: 1

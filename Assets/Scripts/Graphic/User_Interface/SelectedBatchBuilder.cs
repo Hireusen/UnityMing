@@ -167,7 +167,6 @@ public class SelectedBatchBuilder : MonoBehaviour
 
                 Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
                 Vector3 scale = new Vector3(lastSizeX, lastSizeY, 1f);
-
                 Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
                 UGraphic.AddMatrix(_batchMap, _activeKeys, spriteKey, matrix);
             }

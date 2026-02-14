@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 /// <summary>
 /// 블록 로직 매니저 오브젝트에 부착하는 C# 스크립트입니다.
 /// 블록 로직 스크립트를 호출합니다.
@@ -8,6 +8,7 @@ public class BlockLogicManager : MonoBehaviour
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 인스펙터 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     [Header("필수 요소 등록")]
     [SerializeField] private BlockSODataBuilder _blockSODataBuilder;
+    [SerializeField] private BlockPartUpdater _blockPartUpdater;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -15,11 +16,12 @@ public class BlockLogicManager : MonoBehaviour
     public void Verification()
     {
         De.IsNull(_blockSODataBuilder);
+        De.IsNull(_blockPartUpdater);
     }
     // 스크립트 내부 변수 초기화
     public void Initialize()
     {
-
+        _blockPartUpdater.Initialize();
     }
     // 외부에 전달할 데이터 생성
     public void DataBuilder()
@@ -29,7 +31,7 @@ public class BlockLogicManager : MonoBehaviour
     // 마스터 매니저의 Update() 에서 호출할 메서드
     public void RunBeforeFrame()
     {
-
+        _blockPartUpdater.RunBeforeFrame();
     }
     // 마스터 매니저의 LateUpdate() 에서 호출할 메서드
     public void RunAfterFrame()

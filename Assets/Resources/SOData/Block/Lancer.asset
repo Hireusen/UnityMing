@@ -18,7 +18,7 @@ MonoBehaviour:
     offset: {x: 0, y: 0, z: 0}
   - sprite: {fileID: 21300000, guid: 0534c83d2221dfb4cb2214b4dc6bb98d, type: 3}
     type: 1
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0001}
   _label: "\uB79C\uC11C"
   _id: 25
   _size: {x: 2, y: 2}

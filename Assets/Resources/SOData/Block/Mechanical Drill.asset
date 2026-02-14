@@ -17,7 +17,7 @@ MonoBehaviour:
     type: 3
     offset: {x: 0, y: 0, z: 0}
   - sprite: {fileID: 21300000, guid: 1d0605bb67cdcc6409536e21ba1d7107, type: 3}
-    type: 2
+    type: 4
     offset: {x: 0, y: 0, z: -0.0001}
   - sprite: {fileID: 21300000, guid: 7cc77346e8cbe6a4db6461c2e251d296, type: 3}
     type: 4
@@ -27,3 +27,7 @@ MonoBehaviour:
   _size: {x: 2, y: 2}
   _rotatable: 1
   _connection: 0
+  _bodyRotateSpeed: 5
+  _turretRotateSpeed: 90
+  _rotationSpeed: 90
+  _effectCycleTime: 1

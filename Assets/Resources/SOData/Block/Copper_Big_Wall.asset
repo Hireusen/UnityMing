@@ -21,3 +21,7 @@ MonoBehaviour:
   _size: {x: 2, y: 2}
   _rotatable: 1
   _connection: 0
+  _bodyRotateSpeed: 5
+  _turretRotateSpeed: 90
+  _rotationSpeed: 90
+  _effectCycleTime: 1

@@ -9,16 +9,13 @@ public class BlockGraphicManager : MonoBehaviour
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 인스펙터 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     [Header("필수 요소 등록")]
     [SerializeField] private BlockBatchBuilder _blockBatchBuilder;
-    [SerializeField] private BlockPainter _blockPainter;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public void Verification()
     {
         De.IsNull(_blockBatchBuilder);
-        De.IsNull(_blockPainter);
         _blockBatchBuilder.Verification();
-        _blockPainter.Verification();
     }
 
     public void DataBuilder()
@@ -39,7 +36,6 @@ public class BlockGraphicManager : MonoBehaviour
     public void RunAfterFrame()
     {
         _blockBatchBuilder.RunAfterFrame();
-        _blockPainter.RunAfterFrame();
     }
     #endregion
 }

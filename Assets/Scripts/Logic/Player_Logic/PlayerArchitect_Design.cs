@@ -144,4 +144,14 @@ public partial class PlayerArchitect
         for (int i = 0; i < length; ++i)
             _designOccupied[i] = -1;
     }
+
+    /// <summary>
+    /// Q키 — 모든 디자인 블록 + 선택 블록 초기화
+    /// </summary>
+    private void OnBuildReset()
+    {
+        _selecteds.Clear();
+        _stretchOriginal = default;
+        ClearAllDesigns();
+    }
 }

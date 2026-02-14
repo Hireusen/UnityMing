@@ -502,6 +502,7 @@ GameObject:
   - component: {fileID: 780990818}
   - component: {fileID: 780990820}
   - component: {fileID: 780990821}
+  - component: {fileID: 780990822}
   m_Layer: 0
   m_Name: SceneManager
   m_TagString: Untagged
@@ -582,6 +583,31 @@ MonoBehaviour:
   _fadeGroup: {fileID: 1552262367}
   _defaultFadeDuration: 0.35
   _useUnscaledTime: 1
+--- !u!114 &780990822
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 780990816}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e55fcbc09744d1419cd3edbf0031ba7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _sceneBGMs:
+  - sceneName: STitle
+    clips:
+    - {fileID: 8300000, guid: e58cb4cb4ac621d4e959e91493840af6, type: 3}
+    - {fileID: 8300000, guid: 1143fd99f91ae1e4592b486a0c266403, type: 3}
+  - sceneName: SGamePlay
+    clips:
+    - {fileID: 8300000, guid: 2d76841ff4c30d845b16fc566f8d0d7e, type: 3}
+    - {fileID: 8300000, guid: cda84a3365246f4469c6ca3bc30a4216, type: 3}
+    - {fileID: 8300000, guid: 0033754f0c1989043a56c5a2fe6fa77d, type: 3}
+    - {fileID: 8300000, guid: b8c2927e7e2ebc34fa2dfb13f53f4f0f, type: 3}
+  _volume: 0.5
+  _fadeSpeed: 1
 --- !u!1 &993616087
 GameObject:
   m_ObjectHideFlags: 0

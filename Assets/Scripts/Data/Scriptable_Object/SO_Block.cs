@@ -15,11 +15,31 @@ public class SO_Block : SO_Matter
     [SerializeField] protected bool _connection = false;
     public bool Connection => _connection;
 
-    // 개발자가 이상한 값을 입력했는지 검사하고 조정합니다.
+    [Header("부품 회전")]
+    [Tooltip("Body 회전 보간 계수 (지수 보간). 값이 클수록 빠르게 추적합니다.")]
+    [SerializeField] protected float _bodyRotateSpeed = 5f;
+    public float BodyRotateSpeed => _bodyRotateSpeed;
+
+    [Tooltip("Turret 최대 회전 속도 (도/초). 일정 속도로 목표까지 회전합니다.")]
+    [SerializeField] protected float _turretRotateSpeed = 180f;
+    public float TurretRotateSpeed => _turretRotateSpeed;
+
+    [Tooltip("Rotation 자전 속도 (도/초)")]
+    [SerializeField] protected float _rotationSpeed = 90f;
+    public float RotationSpeed => _rotationSpeed;
+
+    [Header("이펙트")]
+    [Tooltip("Effect 스프라이트의 반주기 (초). 이 시간 동안 투명→불투명, 다시 이 시간 동안 불투명→투명")]
+    [SerializeField] protected float _effectCycleTime = 1f;
+    public float EffectCycleTime => _effectCycleTime;
+
     protected override void OnValidate()
     {
         base.OnValidate();
         if (_size.x <= 0) _size.x = 1;
         if (_size.y <= 0) _size.y = 1;
+        if (_bodyRotateSpeed < 0.1f) _bodyRotateSpeed = 0.1f;
+        if (_turretRotateSpeed < 0.1f) _turretRotateSpeed = 0.1f;
+        if (_effectCycleTime < 0.01f) _effectCycleTime = 0.01f;
     }
 }

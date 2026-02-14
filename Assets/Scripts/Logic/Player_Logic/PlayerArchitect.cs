@@ -70,6 +70,7 @@ public partial class PlayerArchitect : MonoBehaviour
         _input.OnDemolishOnce += OnDemolishOnce;
         _input.OnDemolishDrag += OnDemolishDrag;
         _input.OnDemolishDragEnd += OnDemolishDragEnd;
+        _input.OnBuildReset += OnBuildReset;
     }
 
     public void RunBeforeFrame()
@@ -92,6 +93,7 @@ public partial class PlayerArchitect : MonoBehaviour
         _input.OnDemolishOnce -= OnDemolishOnce;
         _input.OnDemolishDrag -= OnDemolishDrag;
         _input.OnDemolishDragEnd -= OnDemolishDragEnd;
+        _input.OnBuildReset -= OnBuildReset;
     }
     #endregion
 }

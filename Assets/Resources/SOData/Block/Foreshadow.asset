@@ -18,9 +18,13 @@ MonoBehaviour:
     offset: {x: 0, y: 0, z: 0}
   - sprite: {fileID: 21300000, guid: 4c319f845654b684dbe1bde77d822e90, type: 3}
     type: 1
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0001}
   _label: "\uC0AC\uC774\uD074\uB860"
   _id: 35
   _size: {x: 4, y: 4}
   _rotatable: 1
   _connection: 0
+  _bodyRotateSpeed: 1
+  _turretRotateSpeed: 180
+  _rotationSpeed: 90
+  _effectCycleTime: 1

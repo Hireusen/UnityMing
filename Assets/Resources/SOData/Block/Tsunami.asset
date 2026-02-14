@@ -18,15 +18,19 @@ MonoBehaviour:
     offset: {x: 0, y: 0, z: 0}
   - sprite: {fileID: 21300000, guid: 369fa5eb696601641988e370fc45aa2f, type: 3}
     type: 1
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0001}
   - sprite: {fileID: 21300000, guid: 4acf172ffbb43ed45bccc62715100a99, type: 3}
     type: 1
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0002}
   - sprite: {fileID: 21300000, guid: 9501425970dfb6b44ace0d7e1547b222, type: 3}
     type: 1
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0003}
   _label: "\uC4F0\uB098\uBBF8"
   _id: 31
   _size: {x: 1, y: 1}
   _rotatable: 1
   _connection: 0
+  _bodyRotateSpeed: 3
+  _turretRotateSpeed: 180
+  _rotationSpeed: 90
+  _effectCycleTime: 1

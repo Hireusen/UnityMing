@@ -3,10 +3,12 @@ using UnityEngine;
 public enum ESound
 {
     None = 0,
-    Title_BGM = 1,
-    Game_BGM = 2,
-    BlockBuild = 3,
-    BlockDestory = 4
+    BlockBuild_1 = 1,
+    BlockBuild_2 = 2,
+    BlockBuild_3 = 3,
+    BlockDestory_1 = 4,
+    BlockDestory_2 = 5,
+    BlockDestory_3 = 6
 }
 /// <summary>
 /// 사운드 매니저 오브젝트에 부착하는 C# 스크립트입니다.

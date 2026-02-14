@@ -11,7 +11,6 @@ public class UserInterfaceManager : MonoBehaviour
     [SerializeField] private SelectedBatchBuilder _selectedBatchBuilder;
     [SerializeField] private SelectedPainter _selectedPainter;
     [SerializeField] private DesignBatchBuilder _designBatchBuilder;
-    [SerializeField] private DesignPainter _designPainter;
     [SerializeField] private DemolishAreaPainter _demolishAreaPainter;
     [SerializeField] private BuildEffectPainter _buildEffectPainter;
     [SerializeField] private DestroyMarkerPainter _destroyMarkerPainter;
@@ -28,14 +27,12 @@ public class UserInterfaceManager : MonoBehaviour
         De.IsNull(_selectedBatchBuilder);
         De.IsNull(_selectedPainter);
         De.IsNull(_designBatchBuilder);
-        De.IsNull(_designPainter);
         De.IsNull(_demolishAreaPainter);
         De.IsNull(_buildEffectPainter);
         De.IsNull(_destroyMarkerPainter);
         _selectedBatchBuilder.Verification();
         _selectedPainter.Verification();
         _designBatchBuilder.Verification();
-        _designPainter.Verification();
         _demolishAreaPainter.Verification();
         _buildEffectPainter.Verification();
         _destroyMarkerPainter.Verification();
@@ -68,7 +65,6 @@ public class UserInterfaceManager : MonoBehaviour
         _selectedBatchBuilder.RunAfterFrame();
         _selectedPainter.RunAfterFrame();
         _designBatchBuilder.RunAfterFrame();
-        _designPainter.RunAfterFrame();
         _demolishAreaPainter.RunAfterFrame();
         _buildEffectPainter.RunAfterFrame();
         _destroyMarkerPainter.RunAfterFrame();

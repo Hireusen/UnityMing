@@ -92,8 +92,6 @@ public static class UGraphic
     {
         if (_listPool.Count > 0)
             return _listPool.Pop();
-
-        // 풀이 비었을 때만 새로 할당 (초반에만 발생)
         return new List<Matrix4x4>(1000);
     }
 
@@ -102,24 +100,21 @@ public static class UGraphic
     /// </summary>
     private static void ReturnListToPool(List<Matrix4x4> list)
     {
-        list.Clear(); // 내용은 비우고
-        _listPool.Push(list); // 창고에 넣음
+        list.Clear();
+        _listPool.Push(list);
     }
 
-    
     public static void ClearBatches<TKey>(
         Dictionary<TKey, List<List<Matrix4x4>>> batchMap,
         List<TKey> activeKeys)
     {
-        // 활성화되었던 키들을 순회하며 리스트 회수
         for (int i = 0; i < activeKeys.Count; i++) {
             var key = activeKeys[i];
             if (batchMap.TryGetValue(key, out var lists)) {
-                // 사용된 모든 하위 리스트를 풀에 반납
                 for (int j = 0; j < lists.Count; j++) {
                     ReturnListToPool(lists[j]);
                 }
-                lists.Clear(); // 껍데기 리스트 비우기
+                lists.Clear();
             }
         }
         activeKeys.Clear();
@@ -139,18 +134,15 @@ public static class UGraphic
             batchMap.Add(key, lists);
         }
 
-        // 해당 키가 이번 프레임에 처음 쓰이는 경우 (비어있음)
         if (lists.Count == 0) {
-            lists.Add(GetListFromPool()); // 풀에서 꺼내옴
-            keys.Add(key); // 활성 키 목록에 추가
+            lists.Add(GetListFromPool());
+            keys.Add(key);
         }
 
-        // 현재 채우고 있는 리스트 가져오기
         List<Matrix4x4> curList = lists[lists.Count - 1];
 
-        // 꽉 찼으면 새 리스트 배급
         if (batchLimit <= curList.Count) {
-            curList = GetListFromPool(); // new List() 대신 풀 사용!
+            curList = GetListFromPool();
             lists.Add(curList);
         }
 
@@ -160,7 +152,6 @@ public static class UGraphic
     /// <summary>
     /// batchMap에 저장된 렌더링 데이터를 DrawMeshInstanced로 그립니다.
     /// </summary>
-    /// <typeparam name="TKey">딕셔너리 키 타입</typeparam>
     public static void DrawBatches<TKey>(
         Mesh mesh,
         Dictionary<TKey, List<List<Matrix4x4>>> batchMap,

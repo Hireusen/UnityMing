@@ -18,12 +18,16 @@ MonoBehaviour:
     offset: {x: 0, y: 0, z: 0}
   - sprite: {fileID: 21300000, guid: e00f676d16b7f904eab45a23799f41e8, type: 3}
     type: 1
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0001}
   - sprite: {fileID: 21300000, guid: 890d269d413f5d6429e1b6e1d018253d, type: 3}
-    type: 1
-    offset: {x: 0, y: 0, z: 0}
+    type: 2
+    offset: {x: 0, y: 0, z: -0.0002}
   _label: "\uC2A4\uCE90\uD130"
   _id: 21
   _size: {x: 2, y: 2}
   _rotatable: 1
   _connection: 0
+  _bodyRotateSpeed: 4
+  _turretRotateSpeed: 300
+  _rotationSpeed: 90
+  _effectCycleTime: 1

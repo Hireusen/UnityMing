@@ -18,13 +18,13 @@ MonoBehaviour:
     offset: {x: 0, y: 0, z: 0}
   - sprite: {fileID: 21300000, guid: b3dd5769499602748a380562899edda7, type: 3}
     type: 1
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0001}
   - sprite: {fileID: 21300000, guid: 9720b1295b853634893dea580e1c74db, type: 3}
     type: 2
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0002}
   - sprite: {fileID: 21300000, guid: 55b840485a1328e43bf71791d87ff8b8, type: 3}
     type: 2
-    offset: {x: 0, y: 0, z: 0}
+    offset: {x: 0, y: 0, z: -0.0002}
   - sprite: {fileID: 21300000, guid: c4cc8cbea24b58e48989b87af6fb6246, type: 3}
     type: 2
     offset: {x: 0, y: 0, z: 0}
@@ -33,3 +33,7 @@ MonoBehaviour:
   _size: {x: 3, y: 3}
   _rotatable: 1
   _connection: 0
+  _bodyRotateSpeed: 3
+  _turretRotateSpeed: 240
+  _rotationSpeed: 90
+  _effectCycleTime: 1

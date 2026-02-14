@@ -1,14 +1,19 @@
 ﻿using UnityEngine;
+
 public struct BlockSingle
 {
     public EBlock id;
     public ERotation rotation;
     public int index; // 블록의 중심(축)이 되는 셀의 1차원 좌표
     public Vector2Int size;
-    // 블록의 각 부품의 회전 값
-    public float partAngle_1;
-    public float partAngle_2;
-    public float partAngle_3;
+
+    // 부품 회전 값
+    public float partAngle_1; // Body 각도 (지수 보간으로 플레이어 바라보기)
+    public float partAngle_2; // Turret 각도 (일정 속도로 플레이어 바라보기)
+    public float partAngle_3; // Rotation 자전 각도
+
+    // 이펙트 타이머 (0 ~ fullCycle 사이 누적)
+    public float effectTimer;
 
     public BlockSingle(EBlock id, ERotation rotation, int index, Vector2Int size)
     {
@@ -19,6 +24,7 @@ public struct BlockSingle
         this.partAngle_1 = 0f;
         this.partAngle_2 = 0f;
         this.partAngle_3 = 0f;
+        this.effectTimer = 0f;
     }
 
     public bool IsVoid() => id == EBlock.None;
@@ -32,5 +38,6 @@ public struct BlockSingle
         partAngle_1 = 0f;
         partAngle_2 = 0f;
         partAngle_3 = 0f;
+        effectTimer = 0f;
     }
 }
