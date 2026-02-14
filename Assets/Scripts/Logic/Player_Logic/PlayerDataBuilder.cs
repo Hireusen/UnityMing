@@ -9,6 +9,8 @@ public class PlayerDataBuilder : MonoBehaviour
     [Header("사용자 정의 설정")]
     [SerializeField] private float _buildRange = 20f;
     [SerializeField] private float _buildInterval = 0.06f;
+    [Tooltip("Shift 키를 누른 상태에서의 건설 속도 배율")]
+    [SerializeField] private float _buildSpeedMultiplier = 2f;
     #endregion
 
     private PlayerSingle _player;
@@ -21,9 +23,13 @@ public class PlayerDataBuilder : MonoBehaviour
         _camera = Camera.main;
     }
 
-    public void DataBuilder() {
+    public void DataBuilder()
+    {
         GameData game = GameData.ins;
-        game.Player = new PlayerSingle(game.TileMap.Width, game.TileMap.Height, _buildRange, _buildInterval);
+        game.Player = new PlayerSingle(
+            game.TileMap.Width, game.TileMap.Height,
+            _buildRange, _buildInterval, _buildSpeedMultiplier
+        );
     }
 
     public void RunBeforeFrame()

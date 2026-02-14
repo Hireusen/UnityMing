@@ -14,6 +14,7 @@ public class PlayerSingle
     public float buildRemain;
     public readonly float buildRange;
     public readonly float buildInterval;
+    public readonly float buildSpeedMultiplier;
     public EBuildState buildState;
 
     // 커서
@@ -34,16 +35,24 @@ public class PlayerSingle
 
     // 건설/철거 중 바라보기 (PlayerMover에서 이동 방향 회전 스킵용)
     public bool lookAtBuild;
+
+    // 복사 영역 시각화
+    public bool copyActive;
+    public int copyMinX;
+    public int copyMinY;
+    public int copyMaxX;
+    public int copyMaxY;
     #endregion
 
     #region ─────────────────────────▶ 생성자 ◀─────────────────────────
-    public PlayerSingle(int width, int height, float buildRange, float buildInterval, int capacity = 256)
+    public PlayerSingle(int width, int height, float buildRange, float buildInterval, float buildSpeedMultiplier, int capacity = 256)
     {
         this.pos = new Vector2(width / 2, height / 2);
         this.angle = 0f;
         this.buildRemain = 0f;
         this.buildRange = buildRange;
         this.buildInterval = buildInterval;
+        this.buildSpeedMultiplier = buildSpeedMultiplier;
         this.buildState = EBuildState.None;
         this.CursorInGrid = Vector2.zero;
         this.CursorMoved = false;

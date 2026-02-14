@@ -14,6 +14,7 @@ public class UserInterfaceManager : MonoBehaviour
     [SerializeField] private DemolishAreaPainter _demolishAreaPainter;
     [SerializeField] private BuildEffectPainter _buildEffectPainter;
     [SerializeField] private DestroyMarkerPainter _destroyMarkerPainter;
+    [SerializeField] private CopyAreaPainter _copyAreaPainter;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -30,17 +31,19 @@ public class UserInterfaceManager : MonoBehaviour
         De.IsNull(_demolishAreaPainter);
         De.IsNull(_buildEffectPainter);
         De.IsNull(_destroyMarkerPainter);
+        De.IsNull(_copyAreaPainter);
         _selectedBatchBuilder.Verification();
         _selectedPainter.Verification();
         _designBatchBuilder.Verification();
         _demolishAreaPainter.Verification();
         _buildEffectPainter.Verification();
         _destroyMarkerPainter.Verification();
+        _copyAreaPainter.Verification();
     }
     // 외부에 전달할 데이터 생성
     public void DataBuilder()
     {
-        
+
     }
     // 스크립트 내부 변수 초기화
     public void Initialize()
@@ -53,6 +56,7 @@ public class UserInterfaceManager : MonoBehaviour
         _demolishAreaPainter.Initialize();
         _buildEffectPainter.Initialize();
         _destroyMarkerPainter.Initialize();
+        _copyAreaPainter.Initialize();
     }
     // 마스터 매니저의 Update() 에서 호출할 메서드
     public void RunBeforeFrame()
@@ -68,6 +72,7 @@ public class UserInterfaceManager : MonoBehaviour
         _demolishAreaPainter.RunAfterFrame();
         _buildEffectPainter.RunAfterFrame();
         _destroyMarkerPainter.RunAfterFrame();
+        _copyAreaPainter.RunAfterFrame();
     }
     #endregion
 }

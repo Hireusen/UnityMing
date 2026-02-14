@@ -35,7 +35,7 @@ public partial class PlayerArchitect
         if (_player.lookAtBuild && Time.time >= _lookAtBuildEndTime)
             _player.lookAtBuild = false;
 
-        _buildTimer -= Time.deltaTime;
+        _buildTimer -= Time.deltaTime * (Input.GetKey(KeyCode.LeftShift) ? _player.buildSpeedMultiplier : 1f);
         if (_buildTimer > 0f) {
             // 쿨타임 중: 건설 방향 바라보기 유지
             if (_player.lookAtBuild)
@@ -110,14 +110,6 @@ public partial class PlayerArchitect
             Vector2Int size = new Vector2Int((int)sizeX, (int)sizeY);
             _lastBuildPos = _blockMap.GetRenderPos(centerIndex, size, order.rotation);
             OnBuildEffect?.Invoke(_lastBuildPos, sizeX, sizeY);
-            // 소리 재생
-            if (size.x <= 1) {
-                _game.SoundAdmin.PlaySound(ESound.BlockBuild_1);
-            } else if (size.x <= 2) {
-                _game.SoundAdmin.PlaySound(ESound.BlockBuild_2);
-            }  else {
-                _game.SoundAdmin.PlaySound(ESound.BlockBuild_3);
-            }
             return true;
         } else {
             RemoveDesign(centerIndex);
@@ -146,14 +138,6 @@ public partial class PlayerArchitect
 
         _lastBuildPos = renderPos;
         OnDestroyEffect?.Invoke(renderPos, sizeX, sizeY);
-        // 소리 재생
-        if (sizeX <= 1f) {
-            _game.SoundAdmin.PlaySound(ESound.BlockDestory_1);
-        } else if (sizeX <= 2f) {
-            _game.SoundAdmin.PlaySound(ESound.BlockDestory_2);
-        } else {
-            _game.SoundAdmin.PlaySound(ESound.BlockDestory_3);
-        }
         return true;
     }
 

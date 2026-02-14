@@ -146,7 +146,7 @@ public partial class PlayerArchitect
             return;
         //TrySelectedToDesign(pos);
         TrySelectedToDesign();
-        _selecteds.Clear();
+        //_selecteds.Clear();
     }
 
     // --- 드래그 배치 ---
@@ -177,6 +177,7 @@ public partial class PlayerArchitect
     // --- 단일 복사 ---
     private void OnCopyOnce(Vector2 clickPos)
     {
+        _player.copyActive = false;
         if (EventSystem.current.IsPointerOverGameObject())
             return;
         if (_dragCopy || _dragPlacer)
@@ -192,17 +193,24 @@ public partial class PlayerArchitect
         if (_dragPlacer)
             return;
         _dragCopy = true;
-        _selecteds.Clear();
-        TryCopyRange(startPos, endPos);
+        // 영역 시각화만 갱신 (selected는 건드리지 않음)
+        (int minX, int minY, int maxX, int maxY) = UGrid.GetForeachPos(startPos, endPos);
+        _player.copyMinX = minX;
+        _player.copyMinY = minY;
+        _player.copyMaxX = maxX;
+        _player.copyMaxY = maxY;
+        _player.copyActive = true;
     }
 
     private void OnCopyDragEnd(Vector2 startPos, Vector2 endPos)
     {
+        _player.copyActive = false;
         if (_dragPlacer)
             return;
         _dragCopy = false;
-        TrySelectedToDesign();
+        // DragEnd에서 한번에 복사
         _selecteds.Clear();
+        TryCopyRange(startPos, endPos);
     }
 
 }
