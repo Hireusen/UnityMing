@@ -11,6 +11,7 @@ public partial class PlayerArchitect : MonoBehaviour
     [Header("필수 요소 등록")]
     [SerializeField] private Camera _camera;
     [SerializeField] private PlayerInput _input;
+    [SerializeField] private Transform _playerTransform;
 
     [Header("사용자 정의 설정")]
     [SerializeField] private float _rotateInterval = 0.1f;
@@ -39,6 +40,7 @@ public partial class PlayerArchitect : MonoBehaviour
     {
         De.IsNull(_camera);
         De.IsNull(_input);
+        De.IsNull(_playerTransform);
     }
 
     public void Initialize()
@@ -70,7 +72,10 @@ public partial class PlayerArchitect : MonoBehaviour
         _input.OnDemolishDragEnd += OnDemolishDragEnd;
     }
 
-    public void RunBeforeFrame() { }
+    public void RunBeforeFrame()
+    {
+        UpdateBuild();
+    }
     public void RunAfterFrame() { }
 
     private void OnDestroy()

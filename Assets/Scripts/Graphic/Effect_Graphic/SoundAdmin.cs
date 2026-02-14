@@ -3,7 +3,10 @@ using UnityEngine;
 public enum ESound
 {
     None = 0,
-    Speech = 1,
+    Title_BGM = 1,
+    Game_BGM = 2,
+    BlockBuild = 3,
+    BlockDestory = 4
 }
 /// <summary>
 /// 사운드 매니저 오브젝트에 부착하는 C# 스크립트입니다.
@@ -75,18 +78,6 @@ public class SoundAdmin : MonoBehaviour
             _source.pitch = 1f;
         }
         _source.PlayOneShot(clip, volumeScale);
-    }
-    // 스크립트 내부 변수 초기화
-    public void Initialize()
-    {
-    }
-    // 마스터 매니저의 Update() 에서 호출할 메서드
-    public void RunBeforeFrame()
-    {
-    }
-    // 마스터 매니저의 LateUpdate() 에서 호출할 메서드
-    public void RunAfterFrame()
-    {
     }
     #endregion
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메시지 함수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓

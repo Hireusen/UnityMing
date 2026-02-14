@@ -8,6 +8,10 @@ public class GameData
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 & 프로퍼티 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public static GameData ins;
 
+    // 사운드 불러오기
+    private SoundAdmin _soundAdmin;
+    public SoundAdmin SoundAdmin => _soundAdmin;
+
     // 플레이어 데이터를 저장할 클래스
     private PlayerSingle _playerSingle;
     public PlayerSingle Player
@@ -89,10 +93,11 @@ public class GameData
             ins = new GameData();
         }
     }
-    public void DataBuilder()
+    public void DataBuilder(SoundAdmin sa)
     {
         _blockPool = new PoolManagement<BlockSingle>();
         _blockMap = new BlockMap(TileMap.Width, TileMap.Height);
+        _soundAdmin = sa;
     }
     public bool DataInspection()
     {

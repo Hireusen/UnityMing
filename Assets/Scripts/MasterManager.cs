@@ -15,6 +15,7 @@ public class MasterManager : MonoBehaviour
     [SerializeField] private EffectGraphicManager _effectGraphicMng;
     [SerializeField] private UserInterfaceManager _userInterfaceMng;
     [SerializeField] private CameraManager _cameraMng;
+    [SerializeField] private SoundAdmin _soundAdmin;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -58,7 +59,7 @@ public class MasterManager : MonoBehaviour
         // 데이터 생성
         _tileLogicMng.DataBuilder();
         _blockLogicMng.DataBuilder();
-        GameData.ins.DataBuilder();
+        GameData.ins.DataBuilder(_soundAdmin);
         _playerLogicMng.DataBuilder();
         _tileGraphicMng.DataBuilder();
         _blockGraphicMng.DataBuilder();

@@ -31,6 +31,9 @@ public class PlayerSingle
     public int demolishMinY;
     public int demolishMaxX;
     public int demolishMaxY;
+
+    // 건설/철거 중 바라보기 (PlayerMover에서 이동 방향 회전 스킵용)
+    public bool lookAtBuild;
     #endregion
 
     #region ─────────────────────────▶ 생성자 ◀─────────────────────────

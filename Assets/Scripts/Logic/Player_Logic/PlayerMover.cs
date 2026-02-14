@@ -19,11 +19,15 @@ public class PlayerMover : MonoBehaviour
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     private float _minX, _maxX;
     private float _minY, _maxY;
+    private PlayerSingle _playerData;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     private void SetRotation(Vector2 axis)
     {
+        // 건설/철거 중에는 해당 방향을 바라봐야 하므로 이동 방향 회전 스킵
+        if (_playerData.lookAtBuild)
+            return;
         float desiredAngle = Mathf.Atan2(axis.y, axis.x) * Mathf.Rad2Deg;
         Quaternion desiredQuaternion = Quaternion.Euler(0f, 0f, desiredAngle - 90f);
         _player.rotation = Quaternion.Lerp(_player.rotation, desiredQuaternion, 0.1f);
@@ -53,6 +57,7 @@ public class PlayerMover : MonoBehaviour
     public void Initialize()
     {
         // 캐싱
+        _playerData = GameData.ins.Player;
         var map = GameData.ins.TileMap;
         De.IsTrue(map.IsInvalid(), LogType.Assert, "타일 맵이 생성되지 않은 채 PlayerMover에 도착했습니다.");
         float outlineWall = (float)map.OutlineWall;
