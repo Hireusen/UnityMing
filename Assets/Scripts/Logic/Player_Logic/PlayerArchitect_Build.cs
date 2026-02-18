@@ -1,29 +1,28 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// 디자인 블록을 플레이어 로직에 따라 자동 건설/철거하기
-///
-/// _buildInterval마다 buildRange 직사각형 내의 디자인 블록 1개를 처리합니다.
-/// Build → 실제 블록 배치, Destroy → 실제 블록 제거
-/// 건설/철거 중에는 _player.lookAtBuild = true → PlayerMover가 이동 방향 회전을 스킵합니다.
+/// 디자인 블록을 자동 건설/철거합니다.
+/// buildInterval마다 buildRange 내의 디자인 블록 1개를 처리합니다.
 /// </summary>
 public partial class PlayerArchitect
 {
-    // ================================================================
-    //  내부 변수
-    // ================================================================
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     private float _buildTimer;
     private float _lookAtBuildEndTime;
     private Vector2 _lastBuildPos;
+    #endregion
 
-    // 건설/철거 이펙트 콜백 (center, sizeX, sizeY)
-    public static event System.Action<Vector2, float, float> OnBuildEffect;
-    public static event System.Action<Vector2, float, float> OnDestroyEffect;
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 이벤트 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    // 건설/철거 시 외부에 알림 (center, sizeX, sizeY)
+    // BuildEffectPainter, SoundAdmin 등이 구독
+    public event System.Action<Vector2, float, float> OnBuildEffect;
+    public event System.Action<Vector2, float, float> OnDestroyEffect;
+    #endregion
 
-    // ================================================================
-    //  메인 루프 (RunBeforeFrame에서 호출)
-    // ================================================================
-
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    /// <summary>
+    /// 매 프레임 호출. 쿨타임 관리 및 건설/철거 시도.
+    /// </summary>
     private void UpdateBuild()
     {
         if (_designs.Count <= 0) {
@@ -31,49 +30,41 @@ public partial class PlayerArchitect
             return;
         }
 
-        // 바라보기 시간 만료 확인
+        // 바라보기 시간 만료
         if (_player.lookAtBuild && Time.time >= _lookAtBuildEndTime)
             _player.lookAtBuild = false;
 
-        _buildTimer -= Time.deltaTime * (Input.GetKey(KeyCode.LeftShift) ? _player.buildSpeedMultiplier : 1f);
+        // Shift 가속
+        float speed = Input.GetKey(KeyCode.LeftShift) ? _player.buildSpeedMultiplier : 1f;
+        _buildTimer -= Time.deltaTime * speed;
+
         if (_buildTimer > 0f) {
-            // 쿨타임 중: 건설 방향 바라보기 유지
             if (_player.lookAtBuild)
                 ApplyLookAtBuild();
             return;
         }
 
-        // 건설/철거 시도
+        // 쿨타임 리셋 및 건설 시도
         _buildTimer = _player.buildInterval;
 
         if (TryProcessOneDesign()) {
-            // 성공: 바라보기 상태 시작 (다음 빌드 인터벌 동안 유지)
             _player.lookAtBuild = true;
             _lookAtBuildEndTime = Time.time + _player.buildInterval;
         }
     }
 
-    // ================================================================
-    //  건설/철거 처리
-    // ================================================================
-
     /// <summary>
-    /// buildRange 직사각형 내에서 첫 번째로 발견되는 디자인 블록을 처리합니다.
+    /// buildRange 직사각형 내에서 첫 번째 디자인 블록을 처리합니다.
     /// </summary>
     private bool TryProcessOneDesign()
     {
         Vector2 playerPos = (Vector2)_playerTransform.position;
         float half = _player.buildRange * 0.5f;
 
-        int minX = Mathf.FloorToInt(playerPos.x - half);
-        int maxX = Mathf.FloorToInt(playerPos.x + half);
-        int minY = Mathf.FloorToInt(playerPos.y - half);
-        int maxY = Mathf.FloorToInt(playerPos.y + half);
-
-        if (minX < 0) minX = 0;
-        if (minY < 0) minY = 0;
-        if (maxX >= _width) maxX = _width - 1;
-        if (maxY >= _height) maxY = _height - 1;
+        int minX = Mathf.Max(0, Mathf.FloorToInt(playerPos.x - half));
+        int maxX = Mathf.Min(_width - 1, Mathf.FloorToInt(playerPos.x + half));
+        int minY = Mathf.Max(0, Mathf.FloorToInt(playerPos.y - half));
+        int maxY = Mathf.Min(_height - 1, Mathf.FloorToInt(playerPos.y + half));
 
         for (int y = minY; y <= maxY; ++y) {
             for (int x = minX; x <= maxX; ++x) {
@@ -86,7 +77,7 @@ public partial class PlayerArchitect
 
                 if (order.type == EOrderType.Build)
                     return TryExecuteBuild(designCenter, order);
-                else if (order.type == EOrderType.Destroy)
+                if (order.type == EOrderType.Destroy)
                     return TryExecuteDestroy(designCenter, order);
             }
         }
@@ -98,23 +89,24 @@ public partial class PlayerArchitect
     /// </summary>
     private bool TryExecuteBuild(int centerIndex, BuildOrder order)
     {
-        float sizeX = 1f;
-        float sizeY = 1f;
-        if (_blockSO.TryGetValue(order.id, out SO_Block so)) {
-            sizeX = so.Size.x;
-            sizeY = so.Size.y;
-        }
-
-        if (_blockMap.TryPlace(centerIndex, order.id, order.rotation)) {
-            RemoveDesign(centerIndex);
-            Vector2Int size = new Vector2Int((int)sizeX, (int)sizeY);
-            _lastBuildPos = _blockMap.GetRenderPos(centerIndex, size, order.rotation);
-            OnBuildEffect?.Invoke(_lastBuildPos, sizeX, sizeY);
-            return true;
-        } else {
+        if (!_blockSO.TryGetValue(order.id, out SO_Block so)) {
             RemoveDesign(centerIndex);
             return false;
         }
+
+        float sizeX = so.Size.x;
+        float sizeY = so.Size.y;
+
+        if (!_blockMap.TryPlace(centerIndex, order.id, order.rotation)) {
+            RemoveDesign(centerIndex);
+            return false;
+        }
+
+        RemoveDesign(centerIndex);
+        Vector2Int size = new Vector2Int((int)sizeX, (int)sizeY);
+        _lastBuildPos = _blockMap.GetRenderPos(centerIndex, size, order.rotation);
+        OnBuildEffect?.Invoke(_lastBuildPos, sizeX, sizeY);
+        return true;
     }
 
     /// <summary>
@@ -141,18 +133,17 @@ public partial class PlayerArchitect
         return true;
     }
 
-    // ================================================================
-    //  건설/철거 방향 바라보기
-    // ================================================================
-
+    /// <summary>
+    /// 건설/철거 대상 방향으로 플레이어를 회전합니다.
+    /// </summary>
     private void ApplyLookAtBuild()
     {
-        Vector2 playerPos = (Vector2)_playerTransform.position;
-        Vector2 dir = _lastBuildPos - playerPos;
+        Vector2 dir = _lastBuildPos - (Vector2)_playerTransform.position;
         if (dir.sqrMagnitude < 0.001f)
             return;
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
         Quaternion target = Quaternion.Euler(0f, 0f, angle - 90f);
         _playerTransform.rotation = Quaternion.Lerp(_playerTransform.rotation, target, 0.15f);
     }
+    #endregion
 }

@@ -2,9 +2,7 @@
 using UnityEngine;
 
 /// <summary>
-/// 유저 인터페이스 매니저 오브젝트에 부착하는 C# 스크립트입니다.
-/// 매 프레임 designs를 순회하여 디자인 블록(건설 예정)의 렌더링 배치 데이터를 구성합니다.
-/// BatchLists 기반으로 키 조회 없이 인덱스로 직접 접근합니다.
+/// 매 프레임 designs를 순회하여 디자인 블록의 렌더링 배치 데이터를 구성하고 그립니다.
 /// </summary>
 public class DesignBatchBuilder : MonoBehaviour
 {
@@ -23,7 +21,7 @@ public class DesignBatchBuilder : MonoBehaviour
     private int _batchCount;
     #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public void Verification()
     {
         De.IsNull(_mesh);
@@ -37,6 +35,59 @@ public class DesignBatchBuilder : MonoBehaviour
         _batchCount = 0;
     }
 
+    /// <summary>
+    /// 매 프레임 designs 순회 → 배치 구성 → DrawMeshInstanced
+    /// </summary>
+    public void RunAfterFrame()
+    {
+        GameData game = GameData.ins;
+        if (De.IsNull(game) || De.IsNull(game.Player)) return;
+
+        var designs = game.Player.designs;
+        ClearAllBatches();
+
+        if (designs.Count <= 0)
+            return;
+
+        BlockMap blockMap = game.Blocks;
+        var blockSO = game.BlockDatabase;
+
+        foreach (var kvp in designs) {
+            BuildOrder order = kvp.Value;
+            if (order.type != EOrderType.Build)
+                continue;
+            if (!blockSO.TryGetValue(order.id, out SO_Block so))
+                continue;
+
+            Vector2Int size = new Vector2Int((int)so.Size.x, (int)so.Size.y);
+            Vector2 renderPos = blockMap.GetRenderPos(order.index, size, order.rotation);
+            float baseX = renderPos.x;
+            float baseY = renderPos.y;
+            float blockAngle = UGrid.RotationToAngle(order.rotation);
+            Vector3 scale = new Vector3(so.Size.x, so.Size.y, 1f);
+
+            int spriteCount = so.SpriteCount;
+            for (int si = 0; si < spriteCount; ++si) {
+                SpriteInfo info = so.GetSpriteInfo(si);
+                int slot = GetOrCreateSlot(new BlockSpriteKey(order.id, si), info.sprite);
+                float posZ = Const.DESIGN_BLOCK + info.offset.z;
+
+                // 디자인 블록은 설치 방향으로만 회전
+                Quaternion rot = (info.type == ESpriteType.Static || info.type == ESpriteType.Effect)
+                    ? Quaternion.identity
+                    : UGraphic.AngleToQuaternion(blockAngle);
+
+                Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
+                AddMatrix(slot, UGraphic.BuildMatrix(pos, rot, scale));
+            }
+        }
+
+        // 그리기
+        DrawAllBatches();
+    }
+    #endregion
+
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     private int GetOrCreateSlot(BlockSpriteKey key, Sprite sprite)
     {
         if (_keyToSlot.TryGetValue(key, out int slot))
@@ -74,65 +125,8 @@ public class DesignBatchBuilder : MonoBehaviour
         }
     }
 
-    public void RunAfterFrame()
+    private void DrawAllBatches()
     {
-        GameData game = GameData.ins;
-        if (De.IsNull(game)) return;
-        if (De.IsNull(game.Player)) return;
-
-        var designs = game.Player.designs;
-        ClearAllBatches();
-
-        if (designs.Count <= 0)
-            return;
-
-        BlockMap blockMap = game.Blocks;
-
-        foreach (var kvp in designs) {
-            BuildOrder order = kvp.Value;
-            if (order.type != EOrderType.Build)
-                continue;
-
-            EBlock id = order.id;
-            if (!game.BlockDatabase.TryGetValue(id, out SO_Block so))
-                continue;
-
-            Vector2Int size = new Vector2Int((int)so.Size.x, (int)so.Size.y);
-            Vector2 renderPos = blockMap.GetRenderPos(order.index, size, order.rotation);
-            float baseX = renderPos.x;
-            float baseY = renderPos.y;
-            float blockAngle = UGrid.RotationToAngle(order.rotation);
-
-            // 모든 스프라이트에 블록 크기 적용
-            Vector3 scale = new Vector3(so.Size.x, so.Size.y, 1f);
-
-            int spriteCount = so.SpriteCount;
-            for (int si = 0; si < spriteCount; ++si) {
-                SpriteInfo info = so.GetSpriteInfo(si);
-                BlockSpriteKey key = new BlockSpriteKey(id, si);
-                int slot = GetOrCreateSlot(key, info.sprite);
-
-                float posZ = -30.5f + info.offset.z;
-
-                Quaternion rot;
-                switch (info.type) {
-                    case ESpriteType.Body:
-                    case ESpriteType.Turret:
-                    case ESpriteType.Rotation:
-                        rot = UGraphic.AngleToQuaternion(blockAngle);
-                        break;
-                    default:
-                        rot = Quaternion.identity;
-                        break;
-                }
-
-                Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
-                Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
-                AddMatrix(slot, matrix);
-            }
-        }
-
-        // 그리기
         for (int i = 0; i < _batchCount; ++i) {
             Material mat = _batches[i].Mat;
             List<List<Matrix4x4>> matrices = _batches[i].matrices;

@@ -26,21 +26,55 @@ public class SoundAdmin : MonoBehaviour
     [Header("필수 요소 등록")]
     [SerializeField] private ClipPair[] _clipPairs;
     [SerializeField] private AudioSource _source;
+    [SerializeField] private PlayerArchitect _playerArchitect;
+
     [Header("사용자 정의 설정")]
     [SerializeField] private float _volume = 1f;
     [SerializeField] private bool _usePitch = true; // 사운드 울리기
     [SerializeField] private Vector2 _pitchRange = new Vector2(0.95f, 1.05f);
     #endregion
+
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     private Dictionary<ESound, AudioClip> _clips;
     #endregion
+
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     // 인스펙터 유효성 검사
     public void Verification()
     {
         De.IsNull(_source);
         De.IsNull(_clipPairs);
+        De.IsNull(_playerArchitect);
     }
+
+    public void Initialized()
+    {
+        _playerArchitect.OnBuildEffect += BuildSound;
+        _playerArchitect.OnDestroyEffect += DemolishSound;
+    }
+    // 건설 사운드
+    private void BuildSound(Vector2 pos, float sizeX, float sizeY)
+    {
+        if (sizeX <= 1.001f) {
+            PlaySound(ESound.BlockBuild_1);
+        } else if (sizeX <= 2.001f) {
+            PlaySound(ESound.BlockBuild_2);
+        } else {
+            PlaySound(ESound.BlockBuild_3);
+        }
+    }
+    // 철거 사운드
+    private void DemolishSound(Vector2 pos, float sizeX, float sizeY)
+    {
+        if (sizeX <= 1.001f) {
+            PlaySound(ESound.BlockDestory_1);
+        } else if (sizeX <= 2.001f) {
+            PlaySound(ESound.BlockDestory_2);
+        } else {
+            PlaySound(ESound.BlockDestory_3);
+        }
+    }
+
     // 외부에 전달할 데이터 생성
     public void DataBuilder()
     {
@@ -82,6 +116,12 @@ public class SoundAdmin : MonoBehaviour
         _source.PlayOneShot(clip, volumeScale);
     }
     #endregion
+
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메시지 함수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    private void OnDestroy()
+    {
+        _playerArchitect.OnBuildEffect -= BuildSound;
+        _playerArchitect.OnDestroyEffect -= DemolishSound;
+    }
     #endregion
 }

@@ -44,7 +44,7 @@ public class TilePainter : MonoBehaviour
 
         for (int index = 0; index < length; ++index) {
             ref readonly TileSingle tile = ref map.Read(index);
-            if (tile.IsVoid())
+            if (tile.IsVoid)
                 continue;
             ETile id = tile.id;
 
@@ -82,8 +82,10 @@ public class TilePainter : MonoBehaviour
     public void RunAfterFrame()
     {
         for (int i = 0; i < _batchCount; ++i) {
+            // 캐싱
             List<List<Matrix4x4>> matrices = _batches[i].matrices;
             Material mat = _batches[i].Mat;
+            // 구워둔 타일 반복
             for (int j = 0; j < matrices.Count; ++j) {
                 Graphics.DrawMeshInstanced(_mesh, 0, mat, matrices[j]);
             }

@@ -47,7 +47,7 @@ public class PlayerMover : MonoBehaviour
         x = Mathf.Clamp(x, _minX, _maxX);
         float y = prevY + movement.y;
         y = Mathf.Clamp(y, _minY, _maxY);
-        _player.position = new Vector3(x, y, -60f);
+        _player.position = new Vector3(x, y, Const.PLAYER_UNIT);
     }
     public void Verification()
     {

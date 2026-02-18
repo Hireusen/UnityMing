@@ -185,7 +185,11 @@ public class SceneFlow : MonoBehaviour
         if (_isLoading) return;
         if (De.IsNull(_catalog)) return;
 
-        HandleHotKeys();
+        //HandleHotKeys();
+        // 게임 종료
+        if (Input.GetKeyDown(KeyCode.Escape)) {
+            LoadScene(SceneCatalog.ESceneID.Title, 0f);
+        }
     }
     // 인스턴스 정리
     private void OnDestroy()

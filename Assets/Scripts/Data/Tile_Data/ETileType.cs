@@ -1,4 +1,4 @@
-public enum ETileType
+﻿public enum ETileType : byte
 {
     Air,
     Ground,

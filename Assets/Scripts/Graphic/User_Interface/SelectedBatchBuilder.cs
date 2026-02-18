@@ -2,13 +2,13 @@
 using UnityEngine;
 
 /// <summary>
-/// 유저 인터페이스 매니저 오브젝트에 부착하는 C# 스크립트입니다.
-/// 매 프레임 selecteds(List)를 순회하여 반투명 블록의 배치 데이터를 구성합니다.
+/// 매 프레임 selecteds를 순회하여 반투명 블록의 배치 데이터를 구성하고 그립니다.
 /// </summary>
 public class SelectedBatchBuilder : MonoBehaviour
 {
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 인스펙터 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     [Header("필수 요소 등록")]
+    [SerializeField] private Mesh _mesh;
     [SerializeField] private Material _baseMaterial;
 
     [Header("사용자 정의 설정")]
@@ -16,92 +16,39 @@ public class SelectedBatchBuilder : MonoBehaviour
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    private Dictionary<BlockSpriteKey, Material> _materialCache;
+    private Dictionary<BlockSpriteKey, int> _keyToSlot;
     private Dictionary<EBlock, SO_Block> _soCache;
-    private Dictionary<BlockSpriteKey, List<List<Matrix4x4>>> _batchMap;
-    private List<BlockSpriteKey> _activeKeys;
+    private List<BatchLists> _batches;
+    private int _batchCount;
     #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 접근자 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    public Dictionary<BlockSpriteKey, Material> MaterialCache => _materialCache;
-    public Dictionary<BlockSpriteKey, List<List<Matrix4x4>>> BatchMap => _batchMap;
-    public List<BlockSpriteKey> ActiveKeys => _activeKeys;
-    #endregion
-
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public void Verification()
     {
+        De.IsNull(_mesh);
         De.IsNull(_baseMaterial);
     }
 
     public void Initialize()
     {
-        _materialCache = new Dictionary<BlockSpriteKey, Material>();
+        _keyToSlot = new Dictionary<BlockSpriteKey, int>();
         _soCache = new Dictionary<EBlock, SO_Block>();
-        _batchMap = new Dictionary<BlockSpriteKey, List<List<Matrix4x4>>>();
-        _activeKeys = new List<BlockSpriteKey>();
-    }
-
-    private SO_Block GetSO(EBlock id)
-    {
-        if (_soCache.TryGetValue(id, out SO_Block so))
-            return so;
-        if (!GameData.ins.BlockDatabase.TryGetValue(id, out so))
-            return null;
-        _soCache.Add(id, so);
-        return so;
-    }
-
-    private Material GetOrCreateMaterial(BlockSpriteKey key, Sprite sprite)
-    {
-        if (_materialCache.TryGetValue(key, out Material mat))
-            return mat;
-        if (sprite == null)
-            return null;
-        mat = UGraphic.CreateMaterial(_baseMaterial, sprite);
-        Color color = mat.color;
-        color.a = _alpha;
-        mat.color = color;
-        _materialCache.Add(key, mat);
-        return mat;
+        _batches = new List<BatchLists>();
+        _batchCount = 0;
     }
 
     /// <summary>
-    /// selected 전용 렌더링 좌표 계산.
-    /// BlockMap.GetRenderPos는 인덱스 기반이라 맵 밖에서 사용할 수 없으므로,
-    /// 그리드 좌표(float)로부터 직접 계산합니다.
-    /// </summary>
-    private static Vector2 GetSelectedRenderPos(float gx, float gy, Vector2Int size, ERotation rotation)
-    {
-        int sizeX = size.x;
-        int sizeY = size.y;
-        switch (rotation) {
-            case ERotation.Up:
-                return new Vector2(gx + sizeX * 0.5f, gy + sizeY * 0.5f);
-            case ERotation.Right:
-                return new Vector2(gx + sizeY * 0.5f, gy - sizeX * 0.5f);
-            case ERotation.Down:
-                return new Vector2(gx - sizeX * 0.5f, gy - sizeY * 0.5f);
-            case ERotation.Left:
-                return new Vector2(gx - sizeY * 0.5f, gy + sizeX * 0.5f);
-            default:
-                return new Vector2(gx + sizeX * 0.5f, gy + sizeY * 0.5f);
-        }
-    }
-
-    /// <summary>
-    /// 매 프레임 selecteds를 순회하여 렌더링 배치 데이터를 재구성합니다.
+    /// 매 프레임 selecteds 순회 → 배치 구성 → DrawMeshInstanced
     /// </summary>
     public void RunAfterFrame()
     {
         GameData game = GameData.ins;
-        if (De.IsNull(game)) return;
-        if (De.IsNull(game.Player)) return;
+        if (De.IsNull(game) || De.IsNull(game.Player)) return;
 
         List<SelectedBlock> selecteds = game.Player.selecteds;
         int count = selecteds.Count;
 
-        UGraphic.ClearBatches(_batchMap, _activeKeys);
+        ClearAllBatches();
 
         if (count <= 0)
             return;
@@ -110,7 +57,7 @@ public class SelectedBatchBuilder : MonoBehaviour
         float cursorX = cursor.x;
         float cursorY = cursor.y;
 
-        // 드래그 타일링에서는 모든 selected가 같은 id → SO 1번만 조회
+        // SO 연속 캐싱 (드래그 타일링에서 같은 id 반복)
         EBlock lastId = EBlock.None;
         SO_Block lastSO = null;
         float lastSizeX = 0f;
@@ -123,7 +70,7 @@ public class SelectedBatchBuilder : MonoBehaviour
             if (sel.id == EBlock.None)
                 continue;
 
-            // SO 캐싱 (같은 id가 연속되면 Dictionary 조회 스킵)
+            // SO 조회 (같은 id 연속 시 스킵)
             if (sel.id != lastId) {
                 lastId = sel.id;
                 lastSO = GetSO(sel.id);
@@ -135,41 +82,107 @@ public class SelectedBatchBuilder : MonoBehaviour
             }
             if (lastSO == null) continue;
 
-            // 그리드 좌표 (정수로 스냅)
+            // 그리드 스냅 → 렌더링 중심
             float gx = Mathf.Floor(cursorX + sel.offsetX);
             float gy = Mathf.Floor(cursorY + sel.offsetY);
-
-            // 렌더링 중심 (맵 밖이어도 계산 가능)
             Vector2 renderPos = GetSelectedRenderPos(gx, gy, lastSize, sel.rotation);
             float baseX = renderPos.x;
             float baseY = renderPos.y;
             float blockAngle = UGrid.RotationToAngle(sel.rotation);
+            Vector3 scale = new Vector3(lastSizeX, lastSizeY, 1f);
 
             for (int si = 0; si < lastSpriteCount; ++si) {
                 SpriteInfo info = lastSO.GetSpriteInfo(si);
-                BlockSpriteKey spriteKey = new BlockSpriteKey(sel.id, si);
+                int slot = GetOrCreateSlot(new BlockSpriteKey(sel.id, si), info.sprite);
+                float posZ = Const.SELECTED_BLOCK + info.offset.z;
 
-                GetOrCreateMaterial(spriteKey, info.sprite);
-
-                float posZ = -31f + info.offset.z;
-
-                Quaternion rot;
-                switch (info.type) {
-                    case ESpriteType.Body:
-                    case ESpriteType.Turret:
-                    case ESpriteType.Rotation:
-                        rot = UGraphic.AngleToQuaternion(blockAngle);
-                        break;
-                    default:
-                        rot = Quaternion.identity;
-                        break;
-                }
+                Quaternion rot = (info.type == ESpriteType.Static || info.type == ESpriteType.Effect)
+                    ? Quaternion.identity
+                    : UGraphic.AngleToQuaternion(blockAngle);
 
                 Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
-                Vector3 scale = new Vector3(lastSizeX, lastSizeY, 1f);
-                Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
-                UGraphic.AddMatrix(_batchMap, _activeKeys, spriteKey, matrix);
+                AddMatrix(slot, UGraphic.BuildMatrix(pos, rot, scale));
             }
+        }
+
+        // 그리기
+        DrawAllBatches();
+    }
+    #endregion
+
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    private SO_Block GetSO(EBlock id)
+    {
+        if (_soCache.TryGetValue(id, out SO_Block so))
+            return so;
+        if (!GameData.ins.BlockDatabase.TryGetValue(id, out so))
+            return null;
+        _soCache.Add(id, so);
+        return so;
+    }
+
+    private int GetOrCreateSlot(BlockSpriteKey key, Sprite sprite)
+    {
+        if (_keyToSlot.TryGetValue(key, out int slot))
+            return slot;
+        Material mat = UGraphic.CreateMaterial(_baseMaterial, sprite);
+        Color c = mat.color;
+        c.a = _alpha;
+        mat.color = c;
+        slot = _batches.Count;
+        _batches.Add(new BatchLists(mat));
+        _keyToSlot.Add(key, slot);
+        _batchCount = _batches.Count;
+        return slot;
+    }
+
+    private void AddMatrix(int slot, Matrix4x4 matrix)
+    {
+        List<List<Matrix4x4>> matrices = _batches[slot].matrices;
+        List<Matrix4x4> curList = matrices[matrices.Count - 1];
+        if (1000 <= curList.Count) {
+            curList = new List<Matrix4x4>(1000);
+            matrices.Add(curList);
+        }
+        curList.Add(matrix);
+    }
+
+    private void ClearAllBatches()
+    {
+        for (int i = 0; i < _batchCount; ++i) {
+            List<List<Matrix4x4>> matrices = _batches[i].matrices;
+            for (int j = 0; j < matrices.Count; ++j)
+                matrices[j].Clear();
+            while (matrices.Count > 1)
+                matrices.RemoveAt(matrices.Count - 1);
+        }
+    }
+
+    private void DrawAllBatches()
+    {
+        for (int i = 0; i < _batchCount; ++i) {
+            Material mat = _batches[i].Mat;
+            List<List<Matrix4x4>> matrices = _batches[i].matrices;
+            for (int j = 0; j < matrices.Count; ++j) {
+                if (matrices[j].Count <= 0) continue;
+                Graphics.DrawMeshInstanced(_mesh, 0, mat, matrices[j]);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 맵 밖에서도 사용 가능한 selected 전용 렌더링 좌표 계산
+    /// </summary>
+    private static Vector2 GetSelectedRenderPos(float gx, float gy, Vector2Int size, ERotation rotation)
+    {
+        int sizeX = size.x;
+        int sizeY = size.y;
+        switch (rotation) {
+            case ERotation.Up: return new Vector2(gx + sizeX * 0.5f, gy + sizeY * 0.5f);
+            case ERotation.Right: return new Vector2(gx + sizeY * 0.5f, gy - sizeX * 0.5f);
+            case ERotation.Down: return new Vector2(gx - sizeX * 0.5f, gy - sizeY * 0.5f);
+            case ERotation.Left: return new Vector2(gx - sizeY * 0.5f, gy + sizeX * 0.5f);
+            default: return new Vector2(gx + sizeX * 0.5f, gy + sizeY * 0.5f);
         }
     }
     #endregion

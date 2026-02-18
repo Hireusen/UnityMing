@@ -9,7 +9,6 @@ public class UserInterfaceManager : MonoBehaviour
     [Header("필수 요소 등록")]
     [SerializeField] private UIBuildButton[] _uiBuildButton;
     [SerializeField] private SelectedBatchBuilder _selectedBatchBuilder;
-    [SerializeField] private SelectedPainter _selectedPainter;
     [SerializeField] private DesignBatchBuilder _designBatchBuilder;
     [SerializeField] private DemolishAreaPainter _demolishAreaPainter;
     [SerializeField] private BuildEffectPainter _buildEffectPainter;
@@ -26,14 +25,12 @@ public class UserInterfaceManager : MonoBehaviour
             De.IsNull(_uiBuildButton[i]);
         }
         De.IsNull(_selectedBatchBuilder);
-        De.IsNull(_selectedPainter);
         De.IsNull(_designBatchBuilder);
         De.IsNull(_demolishAreaPainter);
         De.IsNull(_buildEffectPainter);
         De.IsNull(_destroyMarkerPainter);
         De.IsNull(_copyAreaPainter);
         _selectedBatchBuilder.Verification();
-        _selectedPainter.Verification();
         _designBatchBuilder.Verification();
         _demolishAreaPainter.Verification();
         _buildEffectPainter.Verification();
@@ -67,7 +64,6 @@ public class UserInterfaceManager : MonoBehaviour
     public void RunAfterFrame()
     {
         _selectedBatchBuilder.RunAfterFrame();
-        _selectedPainter.RunAfterFrame();
         _designBatchBuilder.RunAfterFrame();
         _demolishAreaPainter.RunAfterFrame();
         _buildEffectPainter.RunAfterFrame();

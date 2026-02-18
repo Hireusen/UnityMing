@@ -59,7 +59,7 @@ public class DemolishAreaPainter : MonoBehaviour
         float right = player.demolishMaxX + 1f;
         float bottom = player.demolishMinY;
         float top = player.demolishMaxY + 1f;
-        float z = 0f; // LineRenderer는 sortingOrder로 깊이 제어
+        float z = Const.DEMOLISH_SQUARE; // LineRenderer는 sortingOrder로 깊이 제어
 
         _line.SetPosition(0, new Vector3(left, bottom, z));
         _line.SetPosition(1, new Vector3(right, bottom, z));

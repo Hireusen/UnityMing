@@ -23,7 +23,7 @@ public class EffectGraphicManager : MonoBehaviour
     // 스크립트 내부 변수 초기화
     public void Initialize()
     {
-        
+        _soundAdmin.Initialized();
     }
     // 외부에 전달할 데이터 생성
     public void DataBuilder()

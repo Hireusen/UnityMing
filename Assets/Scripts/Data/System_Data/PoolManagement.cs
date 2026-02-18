@@ -7,7 +7,6 @@ using System;
 /// </summary>
 public class PoolManagement<T> where T : struct
 {
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     protected T[] _dataList;
     protected bool[] _isActive;
     protected Stack<int> _freeIndex;
@@ -28,7 +27,6 @@ public class PoolManagement<T> where T : struct
     /// 현재까지 데이터가 가장 많이 생성되었을 때의 개수
     /// </summary>
     public int Capacity => _nextIndex;
-    #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     /// <summary>

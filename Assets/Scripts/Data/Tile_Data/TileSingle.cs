@@ -14,10 +14,10 @@ public struct TileSingle
         this.ore = ore;
     }
 
-    public bool IsVoid() => id == ETile.None;
-    public bool IsGround() => type == ETileType.Ground;
-    public bool IsWall() => type == ETileType.Wall;
-    public bool HasOre() => ore != EItem.None;
+    public readonly bool IsVoid => id == ETile.None;
+    public readonly bool IsGround => type == ETileType.Ground;
+    public readonly bool IsWall => type == ETileType.Wall;
+    public readonly bool HasOre => ore != EItem.None;
 
     public void Init()
     {

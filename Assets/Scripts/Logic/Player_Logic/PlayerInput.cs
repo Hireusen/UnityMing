@@ -159,10 +159,6 @@ public class PlayerInput : MonoBehaviour
                 OnScrollDown?.Invoke();
             }
         }
-        // 게임 종료
-        if (Input.GetKeyDown(KeyCode.Escape)) {
-            Application.Quit();
-        }
     }
     #endregion
 }

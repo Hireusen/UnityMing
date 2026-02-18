@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using static Const;
+using UnityEngine;
 
 /// <summary>
 /// 아무 오브젝트에 부착하는 스크립트입니다.
@@ -14,7 +15,6 @@ public class CameraTrackPlayer : MonoBehaviour
     [SerializeField] private Transform _target;
 
     [Header("사용자 정의 설정")]
-    [SerializeField] private float _zOffset = -100f;
     [SerializeField] private float _sharpness = 15f;
     [SerializeField] private float _outlineOffset = 1.5f;
     #endregion
@@ -33,7 +33,7 @@ public class CameraTrackPlayer : MonoBehaviour
         Vector3 desiredPos = _target.position;
         desiredPos.x = Mathf.Clamp(desiredPos.x, _minX, _maxX);
         desiredPos.y = Mathf.Clamp(desiredPos.y, _minY, _maxY);
-        desiredPos.z = _zOffset;
+        desiredPos.z = PLAYER_CAMERA;
         return desiredPos;
     }
     // 카메라의 위치를 플레이어에게 순간이동시킵니다.

@@ -1,4 +1,4 @@
-﻿public enum ETile
+﻿public enum ETile : byte
 {
     None = 0,
     // Ground

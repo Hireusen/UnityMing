@@ -168,7 +168,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _flow: {fileID: 780990820}
   _id: 1
-  _minimum: 4.7
+  _minimum: 1.4
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0

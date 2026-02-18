@@ -25,7 +25,7 @@ public class BlockBatchBuilder : MonoBehaviour
     // Effect 전용
     private Dictionary<BlockSpriteKey, Material> _effectMaterials;
     private MaterialPropertyBlock _effectMpb;
-    private static readonly int _colorID = Shader.PropertyToID("_Color");
+    private readonly int _colorID = Shader.PropertyToID("_Color");
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -121,19 +121,11 @@ public class BlockBatchBuilder : MonoBehaviour
 
             Vector3 scale = new Vector3(so.Size.x, so.Size.y, 1f);
 
-            // 이펙트 투명도 계산 (삼각파: 0→1→0)
-            float effectAlpha = 0f;
-            float cycle = so.EffectCycleTime;
-            if (cycle > 0f) {
-                float t = block.effectTimer / cycle; // 0 ~ 2
-                effectAlpha = (t <= 1f) ? t : 2f - t;
-            }
-
             int spriteCount = so.SpriteCount;
             for (int si = 0; si < spriteCount; ++si) {
                 SpriteInfo info = so.GetSpriteInfo(si);
 
-                float posZ = -30f + info.offset.z;
+                float posZ = Const.WORLD_BLOCK + info.offset.z;
                 float offsetX = info.offset.x;
                 float offsetY = info.offset.y;
 
@@ -153,10 +145,6 @@ public class BlockBatchBuilder : MonoBehaviour
                         rot = UGraphic.AngleToQuaternion(rotationAngle);
                         pos = UGraphic.RotateOffset(baseX, baseY, offsetX, offsetY, rotationAngle, posZ);
                         break;
-                    case ESpriteType.Effect:
-                        // Effect는 개별 DrawMesh로 처리 (아래 별도)
-                        DrawEffect(block, so, info, si, baseX, baseY, blockAngle, scale, effectAlpha);
-                        continue; // 배치에 추가하지 않음
                     case ESpriteType.Static:
                     default:
                         rot = UGraphic.AngleToQuaternion(blockAngle);
@@ -189,7 +177,7 @@ public class BlockBatchBuilder : MonoBehaviour
         in BlockSingle block, SO_Block so, in SpriteInfo info, int spriteIndex,
         float baseX, float baseY, float blockAngle, Vector3 scale, float alpha)
     {
-        float posZ = -30f + info.offset.z;
+        float posZ = Const.WORLD_BLOCK + info.offset.z;
         Quaternion rot = UGraphic.AngleToQuaternion(blockAngle);
         Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
         Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);

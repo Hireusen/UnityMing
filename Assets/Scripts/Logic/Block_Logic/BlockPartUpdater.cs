@@ -47,11 +47,9 @@ public class BlockPartUpdater : MonoBehaviour
         for (int adress = 0; adress < capacity; ++adress) {
             if (!_pool.IsExist(adress))
                 continue;
-
             ref BlockSingle block = ref _pool.GetRef(adress);
             if (block.IsVoid())
                 continue;
-
             if (!_blockSO.TryGetValue(block.id, out SO_Block so))
                 continue;
 
@@ -61,11 +59,11 @@ public class BlockPartUpdater : MonoBehaviour
             float dy = playerY - renderPos.y;
             float targetAngle = Mathf.Atan2(dy, dx) * Mathf.Rad2Deg - 90f;
 
-            // ── partAngle_1 : Body (지수 보간) ──
+            // Body (지수 보간)
             float bodyDelta = Mathf.DeltaAngle(block.partAngle_1, targetAngle);
             block.partAngle_1 += bodyDelta * Mathf.Clamp01(so.BodyRotateSpeed * dt);
 
-            // ── partAngle_2 : Turret (일정 속도, 최단 경로) ──
+            // Turret (일정 속도, 플레이어 바라봄)
             float turretDelta = Mathf.DeltaAngle(block.partAngle_2, targetAngle);
             float maxStep = so.TurretRotateSpeed * dt;
             if (Mathf.Abs(turretDelta) <= maxStep)
@@ -73,16 +71,10 @@ public class BlockPartUpdater : MonoBehaviour
             else
                 block.partAngle_2 += Mathf.Sign(turretDelta) * maxStep;
 
-            // ── partAngle_3 : Rotation (자전) ──
+            // Rotation (자전)
             block.partAngle_3 += so.RotationSpeed * dt;
             if (block.partAngle_3 > 360f) block.partAngle_3 -= 360f;
             else if (block.partAngle_3 < -360f) block.partAngle_3 += 360f;
-
-            // ── effectTimer : Effect (삼각파 누적) ──
-            float fullCycle = so.EffectCycleTime * 2f;
-            block.effectTimer += dt;
-            if (block.effectTimer >= fullCycle)
-                block.effectTimer -= fullCycle;
         }
     }
     #endregion

@@ -29,5 +29,5 @@ MonoBehaviour:
   _connection: 0
   _bodyRotateSpeed: 5
   _turretRotateSpeed: 90
-  _rotationSpeed: 540
+  _rotationSpeed: 1620
   _effectCycleTime: 0.01
