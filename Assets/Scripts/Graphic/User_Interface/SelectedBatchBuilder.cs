@@ -16,7 +16,7 @@ public class SelectedBatchBuilder : MonoBehaviour
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    private BatchRegistry _registry;
+    private BatchManagement _registry;
     private Dictionary<EBlock, SO_Block> _soCache;
     #endregion
 
@@ -29,7 +29,7 @@ public class SelectedBatchBuilder : MonoBehaviour
 
     public void Initialize()
     {
-        _registry = new BatchRegistry(_mesh, _baseMaterial, _alpha);
+        _registry = new BatchManagement(_mesh, _baseMaterial, _alpha);
         _soCache = new Dictionary<EBlock, SO_Block>();
     }
 

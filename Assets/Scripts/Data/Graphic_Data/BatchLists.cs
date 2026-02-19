@@ -14,6 +14,6 @@ public struct BatchLists
     {
         this._material = material;
         this.matrices = new List<List<Matrix4x4>>();
-        matrices.Add(new List<Matrix4x4>(2));
+        matrices.Add(new List<Matrix4x4>(capacity));
     }
 }

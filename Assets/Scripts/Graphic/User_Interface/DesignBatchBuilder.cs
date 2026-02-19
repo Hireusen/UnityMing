@@ -16,7 +16,7 @@ public class DesignBatchBuilder : MonoBehaviour
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    private BatchRegistry _registry;
+    private BatchManagement _registry;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -28,7 +28,7 @@ public class DesignBatchBuilder : MonoBehaviour
 
     public void Initialize()
     {
-        _registry = new BatchRegistry(_mesh, _baseMaterial, _alpha);
+        _registry = new BatchManagement(_mesh, _baseMaterial, _alpha);
     }
 
     /// <summary>
@@ -62,16 +62,20 @@ public class DesignBatchBuilder : MonoBehaviour
             Vector3 scale = new Vector3(so.Size.x, so.Size.y, 1f);
 
             int spriteCount = so.SpriteCount;
-            for (int si = 0; si < spriteCount; ++si) {
-                SpriteInfo info = so.GetSpriteInfo(si);
-                int slot = _registry.GetOrCreateSlot(new BlockSpriteKey(order.id, si), info.sprite);
+            for (int i = 0; i < spriteCount; ++i) {
+                SpriteInfo info = so.GetSpriteInfo(i);
+                int slot = _registry.GetOrCreateSlot(new BlockSpriteKey(order.id, i), info.sprite);
+                // 회전
+                Quaternion rot;
+                if (info.type == ESpriteType.Static) {
+                    rot = Quaternion.identity;
+                } else {
+                    rot = UGraphic.AngleToQuaternion(blockAngle);
+                }
+                // 좌표
                 float posZ = Const.DESIGN_BLOCK + info.offset.z;
-
-                Quaternion rot = (info.type == ESpriteType.Static || info.type == ESpriteType.Effect)
-                    ? Quaternion.identity
-                    : UGraphic.AngleToQuaternion(blockAngle);
-
                 Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
+                // 매트릭스
                 Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
                 _registry.Add(slot, in matrix);
             }

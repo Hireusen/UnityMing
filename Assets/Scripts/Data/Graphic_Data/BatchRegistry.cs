@@ -3,10 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// BlockSpriteKey → BatchData 매핑을 관리하는 재사용 가능한 배치 레지스트리.
-/// 매 프레임 ClearAll() → GetOrCreateSlot() + Add() → DrawAll() 로 운용합니다.
-/// 내부 컬렉션을 제거하지 않으므로 정상 상태(워밍업 이후)에서 GC 할당이 0입니다.
 /// </summary>
-public class BatchRegistry
+public class BatchManagement
 {
     private readonly Mesh _mesh;
     private readonly Material _baseMaterial;
@@ -16,9 +14,7 @@ public class BatchRegistry
     private readonly List<BatchData> _batches;
     private int _batchCount;
 
-    /// <param name="baseMaterial">복제 원본 머테리얼</param>
-    /// <param name="alphaOverride">0 이상이면 머테리얼 색상 알파를 이 값으로 덮어씁니다. 음수면 무시.</param>
-    public BatchRegistry(Mesh mesh, Material baseMaterial, float alpha = -1f)
+    public BatchManagement(Mesh mesh, Material baseMaterial, float alpha = -1f)
     {
         this._mesh = mesh;
         this._baseMaterial = baseMaterial;
@@ -28,7 +24,7 @@ public class BatchRegistry
         this._batchCount = 0;
     }
 
-    /// <summary>모든 배치의 매트릭스를 비웁니다. 컬렉션 인스턴스는 유지. GC-free.</summary>
+    
     public void ClearAll()
     {
         for (int i = 0; i < _batchCount; ++i)

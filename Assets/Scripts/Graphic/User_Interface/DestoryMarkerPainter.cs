@@ -64,23 +64,23 @@ public class DestroyMarkerPainter : MonoBehaviour
             Vector2 renderPos = blockMap.GetRenderPos(order.index, size, order.rotation);
 
             // 회전 시 시각적 크기 스왑
-            float hw, hh;
+            float halfWidth, halfHeight;
             if (order.rotation == ERotation.Right || order.rotation == ERotation.Left) {
-                hw = sizeY * 0.5f;
-                hh = sizeX * 0.5f;
+                halfHeight = sizeX * 0.5f;
+                halfWidth = sizeY * 0.5f;
             } else {
-                hw = sizeX * 0.5f;
-                hh = sizeY * 0.5f;
+                halfWidth = sizeX * 0.5f;
+                halfHeight = sizeY * 0.5f;
             }
 
             // 사각형 그리기
             float z = Const.DEMOLISH_MARKER;
             LineRenderer line = GetLine(used);
             line.enabled = true;
-            line.SetPosition(0, new Vector3(renderPos.x - hw, renderPos.y - hh, z));
-            line.SetPosition(1, new Vector3(renderPos.x + hw, renderPos.y - hh, z));
-            line.SetPosition(2, new Vector3(renderPos.x + hw, renderPos.y + hh, z));
-            line.SetPosition(3, new Vector3(renderPos.x - hw, renderPos.y + hh, z));
+            line.SetPosition(0, new Vector3(renderPos.x - halfWidth, renderPos.y - halfHeight, z));
+            line.SetPosition(1, new Vector3(renderPos.x + halfWidth, renderPos.y - halfHeight, z));
+            line.SetPosition(2, new Vector3(renderPos.x + halfWidth, renderPos.y + halfHeight, z));
+            line.SetPosition(3, new Vector3(renderPos.x - halfWidth, renderPos.y + halfHeight, z));
             ++used;
         }
 

@@ -6,12 +6,9 @@
 /// </summary>
 public struct SelectedBlock
 {
-    /// <summary> 그룹 중심(커서) 기준 상대 그리드 좌표 </summary>
     public float offsetX;
     public float offsetY;
-    /// <summary> 블록 종류 </summary>
     public EBlock id;
-    /// <summary> 설치 방향 </summary>
     public ERotation rotation;
 
     public SelectedBlock(float offsetX, float offsetY, EBlock id, ERotation rotation)
