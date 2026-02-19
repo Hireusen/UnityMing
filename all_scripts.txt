@@ -512,12 +512,12 @@ public class BlockMap
         int count = 0;
         for (int y = 0; y < spanY; ++y) {
             for (int x = 0; x < spanX; ++x) {
-                int gx = gridX + x * dirX;
-                int gy = gridY + y * dirY;
+                int localGridX = gridX + x * dirX;
+                int localGridY = gridY + y * dirY;
                 // 맵 범위 검사
-                if (gx < 0 || _width <= gx || gy < 0 || _height <= gy)
+                if (localGridX < 0 || _width <= localGridX || localGridY < 0 || _height <= localGridY)
                     continue;
-                buffer[count++] = UGrid.GridToIndex(gx, gy, _width);
+                buffer[count++] = UGrid.GridToIndex(localGridX, localGridY, _width);
             }
         }
         return count;
@@ -618,17 +618,14 @@ public struct BlockRef
 public struct BlockSingle
 {
     public EBlock id;
-    public ERotation rotation;
-    public int index; // 블록의 중심(축)이 되는 셀의 1차원 좌표
+    public ERotation rotation; // 상하좌우 방향
+    public int index; // 블록의 중심이 되는 셀의 1차원 좌표
     public Vector2Int size;
 
     // 부품 회전 값
-    public float partAngle_1; // Body 각도 (지수 보간으로 플레이어 바라보기)
-    public float partAngle_2; // Turret 각도 (일정 속도로 플레이어 바라보기)
+    public float partAngle_1; // Body 각도
+    public float partAngle_2; // Turret 각도
     public float partAngle_3; // Rotation 자전 각도
-
-    // 이펙트 타이머 (0 ~ fullCycle 사이 누적)
-    public float effectTimer;
 
     public BlockSingle(EBlock id, ERotation rotation, int index, Vector2Int size)
     {
@@ -639,7 +636,6 @@ public struct BlockSingle
         this.partAngle_1 = 0f;
         this.partAngle_2 = 0f;
         this.partAngle_3 = 0f;
-        this.effectTimer = 0f;
     }
 
     public bool IsVoid() => id == EBlock.None;
@@ -653,7 +649,6 @@ public struct BlockSingle
         partAngle_1 = 0f;
         partAngle_2 = 0f;
         partAngle_3 = 0f;
-        effectTimer = 0f;
     }
 }
  
@@ -768,6 +763,81 @@ public enum ERotation : byte
 }
  
 // ======================================================== 
+// 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Data\Graphic_Data\BatchData.cs 
+// ======================================================== 
+ 
+﻿using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// DrawMeshInstanced용 배치 데이터.
+/// 매 프레임 Clear() → Add() → Draw() 사이클로 재활용합니다.
+/// 고정 크기 Matrix4x4[] 배열과 카운트만 사용하여 GC 할당이 전혀 발생하지 않습니다.
+/// </summary>
+public sealed class BatchData
+{
+    public readonly Material Mat;
+
+    /// <summary>DrawMeshInstanced 최대 인스턴스 수</summary>
+    private const int CHUNK_CAPACITY = 1023;
+
+    private readonly List<Matrix4x4[]> _chunks;
+    private readonly List<int> _counts;
+    private int _activeChunkCount;
+
+    public BatchData(Material mat)
+    {
+        Mat = mat;
+        _chunks = new List<Matrix4x4[]>(4);
+        _counts = new List<int>(4);
+        _chunks.Add(new Matrix4x4[CHUNK_CAPACITY]);
+        _counts.Add(0);
+        _activeChunkCount = 1;
+    }
+
+    /// <summary>카운트만 리셋합니다. 배열 인스턴스는 유지. GC-free.</summary>
+    public void Clear()
+    {
+        for (int i = 0; i < _activeChunkCount; ++i)
+            _counts[i] = 0;
+        _activeChunkCount = 1;
+    }
+
+    /// <summary>매트릭스를 추가합니다. 정상 상태(워밍업 이후)에서 GC-free.</summary>
+    public void Add(in Matrix4x4 matrix)
+    {
+        int ci = _activeChunkCount - 1;
+        int count = _counts[ci];
+
+        if (count >= CHUNK_CAPACITY) {
+            ++_activeChunkCount;
+            ci = _activeChunkCount - 1;
+
+            if (ci >= _chunks.Count) {
+                _chunks.Add(new Matrix4x4[CHUNK_CAPACITY]);
+                _counts.Add(0);
+            } else {
+                _counts[ci] = 0;
+            }
+            count = 0;
+        }
+
+        _chunks[ci][count] = matrix;
+        _counts[ci] = count + 1;
+    }
+
+    /// <summary>활성 청크만 DrawMeshInstanced로 렌더링합니다.</summary>
+    public void Draw(Mesh mesh)
+    {
+        for (int i = 0; i < _activeChunkCount; ++i) {
+            int count = _counts[i];
+            if (count > 0)
+                Graphics.DrawMeshInstanced(mesh, 0, Mat, _chunks[i], count);
+        }
+    }
+}
+ 
+// ======================================================== 
 // 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Data\Graphic_Data\BatchLists.cs 
 // ======================================================== 
  
@@ -788,6 +858,82 @@ public struct BatchLists
         this._material = material;
         this.matrices = new List<List<Matrix4x4>>();
         matrices.Add(new List<Matrix4x4>(2));
+    }
+}
+ 
+// ======================================================== 
+// 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Data\Graphic_Data\BatchRegistry.cs 
+// ======================================================== 
+ 
+﻿using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// BlockSpriteKey → BatchData 매핑을 관리하는 재사용 가능한 배치 레지스트리.
+/// 매 프레임 ClearAll() → GetOrCreateSlot() + Add() → DrawAll() 로 운용합니다.
+/// 내부 컬렉션을 제거하지 않으므로 정상 상태(워밍업 이후)에서 GC 할당이 0입니다.
+/// </summary>
+public sealed class BatchRegistry
+{
+    private readonly Material _baseMaterial;
+    private readonly float _alphaOverride;
+
+    private readonly Dictionary<BlockSpriteKey, int> _keyToSlot;
+    private readonly List<BatchData> _batches;
+    private int _batchCount;
+
+    /// <param name="baseMaterial">복제 원본 머테리얼</param>
+    /// <param name="alphaOverride">0 이상이면 머테리얼 색상 알파를 이 값으로 덮어씁니다. 음수면 무시.</param>
+    public BatchRegistry(Material baseMaterial, float alphaOverride = -1f)
+    {
+        _baseMaterial = baseMaterial;
+        _alphaOverride = alphaOverride;
+        _keyToSlot = new Dictionary<BlockSpriteKey, int>(64);
+        _batches = new List<BatchData>(32);
+        _batchCount = 0;
+    }
+
+    /// <summary>모든 배치의 매트릭스를 비웁니다. 컬렉션 인스턴스는 유지. GC-free.</summary>
+    public void ClearAll()
+    {
+        for (int i = 0; i < _batchCount; ++i)
+            _batches[i].Clear();
+    }
+
+    /// <summary>
+    /// 키에 해당하는 슬롯 인덱스를 반환합니다.
+    /// 최초 호출 시에만 Material/BatchData를 할당하며, 이후에는 GC-free입니다.
+    /// </summary>
+    public int GetOrCreateSlot(BlockSpriteKey key, Sprite sprite)
+    {
+        if (_keyToSlot.TryGetValue(key, out int slot))
+            return slot;
+
+        Material mat = UGraphic.CreateMaterial(_baseMaterial, sprite);
+        if (_alphaOverride >= 0f) {
+            Color c = mat.color;
+            c.a = _alphaOverride;
+            mat.color = c;
+        }
+
+        slot = _batchCount;
+        _batches.Add(new BatchData(mat));
+        _keyToSlot.Add(key, slot);
+        _batchCount = _batches.Count;
+        return slot;
+    }
+
+    /// <summary>해당 슬롯에 매트릭스를 추가합니다. GC-free.</summary>
+    public void Add(int slot, in Matrix4x4 matrix)
+    {
+        _batches[slot].Add(in matrix);
+    }
+
+    /// <summary>모든 활성 배치를 DrawMeshInstanced로 렌더링합니다.</summary>
+    public void DrawAll(Mesh mesh)
+    {
+        for (int i = 0; i < _batchCount; ++i)
+            _batches[i].Draw(mesh);
     }
 }
  
@@ -1047,20 +1193,14 @@ public class SO_Block : SO_Matter
     public bool Connection => _connection;
 
     [Header("부품 회전")]
-    [Tooltip("Body 회전 보간 계수 (지수 보간). 값이 클수록 빠르게 추적합니다.")]
     [SerializeField] protected float _bodyRotateSpeed = 5f;
     public float BodyRotateSpeed => _bodyRotateSpeed;
-
-    [Tooltip("Turret 최대 회전 속도 (도/초). 일정 속도로 목표까지 회전합니다.")]
     [SerializeField] protected float _turretRotateSpeed = 180f;
     public float TurretRotateSpeed => _turretRotateSpeed;
-
-    [Tooltip("Rotation 자전 속도 (도/초)")]
     [SerializeField] protected float _rotationSpeed = 90f;
     public float RotationSpeed => _rotationSpeed;
 
     [Header("이펙트")]
-    [Tooltip("Effect 스프라이트의 반주기 (초). 이 시간 동안 투명→불투명, 다시 이 시간 동안 불투명→투명")]
     [SerializeField] protected float _effectCycleTime = 1f;
     public float EffectCycleTime => _effectCycleTime;
 
@@ -1211,6 +1351,33 @@ public class SO_Tile : SO_Matter
 }
  
 // ======================================================== 
+// 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Data\System_Data\Const.cs 
+// ======================================================== 
+ 
+﻿
+using UnityEngine;
+/// <summary>
+/// 상수를 모아두는 클래스입니다.
+/// </summary>
+public class Const
+{
+    // Z 오프셋
+    public const float PLAYER_CAMERA = -10f;
+    public const float PLAYER_UNIT = -8f;
+
+    public const float BUILD_EFFECT = -6f;
+    public const float DEMOLISH_EFFECT = -6f;
+
+    public const float DEMOLISH_SQUARE = -5f;
+    public const float COPY_SQUARE = -5f;
+    public const float DEMOLISH_MARKER = -4f;
+
+    public const float WORLD_BLOCK = -3f;
+    public const float DESIGN_BLOCK = -2f;
+    public const float SELECTED_BLOCK = -1f;
+}
+ 
+// ======================================================== 
 // 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Data\System_Data\PoolManagement.cs 
 // ======================================================== 
  
@@ -1223,7 +1390,6 @@ using System;
 /// </summary>
 public class PoolManagement<T> where T : struct
 {
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     protected T[] _dataList;
     protected bool[] _isActive;
     protected Stack<int> _freeIndex;
@@ -1244,9 +1410,8 @@ public class PoolManagement<T> where T : struct
     /// 현재까지 데이터가 가장 많이 생성되었을 때의 개수
     /// </summary>
     public int Capacity => _nextIndex;
-    #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     /// <summary>
     /// 새로운 데이터 등록
     /// 생성 실패했을 경우 -1을 반환
@@ -1265,8 +1430,8 @@ public class PoolManagement<T> where T : struct
         else {
             // 공간 부족
             if (_dataList.Length <= _nextIndex) {
-                
-                if (!UArray.TryResizeArray(ref _dataList, 1.5d)) { // 배열 확장 시도
+                // 배열 확장 시도
+                if (!UArray.TryResizeArray(ref _dataList, 1.5d)) {
                     return -1;
                 }
                 UArray.TryResizeArray(ref _isActive, 1.5d);
@@ -1341,7 +1506,7 @@ public class PoolManagement<T> where T : struct
 // 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Data\Tile_Data\ETile.cs 
 // ======================================================== 
  
-﻿public enum ETile
+﻿public enum ETile : byte
 {
     None = 0,
     // Ground
@@ -1359,13 +1524,14 @@ public class PoolManagement<T> where T : struct
 // 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Data\Tile_Data\ETileType.cs 
 // ======================================================== 
  
-public enum ETileType
+﻿public enum ETileType : byte
 {
     Air,
     Ground,
     Wall,
     Liquid
-} 
+}
+ 
 // ======================================================== 
 // 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Data\Tile_Data\TileMap.cs 
 // ======================================================== 
@@ -1527,10 +1693,10 @@ public struct TileSingle
         this.ore = ore;
     }
 
-    public bool IsVoid() => id == ETile.None;
-    public bool IsGround() => type == ETileType.Ground;
-    public bool IsWall() => type == ETileType.Wall;
-    public bool HasOre() => ore != EItem.None;
+    public readonly bool IsVoid => id == ETile.None;
+    public readonly bool IsGround => type == ETileType.Ground;
+    public readonly bool IsWall => type == ETileType.Wall;
+    public readonly bool HasOre => ore != EItem.None;
 
     public void Init()
     {
@@ -1631,7 +1797,7 @@ using UnityEngine;
 /// 매 프레임 PoolManagement&lt;BlockSingle&gt;의 활성 블록만 순회하여
 /// 렌더링 배치 데이터를 구성합니다.
 ///
-/// Body/Turret/Rotation/Static → BatchLists 배치 렌더링
+/// Body/Turret/Rotation/Static → BatchRegistry 배치 렌더링
 /// Effect → 인스턴스별 투명도가 필요하므로 Graphics.DrawMesh + MaterialPropertyBlock
 /// </summary>
 public class BlockBatchBuilder : MonoBehaviour
@@ -1643,14 +1809,7 @@ public class BlockBatchBuilder : MonoBehaviour
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    private Dictionary<BlockSpriteKey, int> _keyToSlot;
-    private List<BatchLists> _batches;
-    private int _batchCount;
-
-    // Effect 전용
-    private Dictionary<BlockSpriteKey, Material> _effectMaterials;
-    private MaterialPropertyBlock _effectMpb;
-    private static readonly int _colorID = Shader.PropertyToID("_Color");
+    private BatchRegistry _registry;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -1662,55 +1821,7 @@ public class BlockBatchBuilder : MonoBehaviour
 
     public void Initialize()
     {
-        _keyToSlot = new Dictionary<BlockSpriteKey, int>();
-        _batches = new List<BatchLists>();
-        _batchCount = 0;
-        _effectMaterials = new Dictionary<BlockSpriteKey, Material>();
-        _effectMpb = new MaterialPropertyBlock();
-    }
-
-    private int GetOrCreateSlot(BlockSpriteKey key, Sprite sprite)
-    {
-        if (_keyToSlot.TryGetValue(key, out int slot))
-            return slot;
-        Material mat = UGraphic.CreateMaterial(_baseMaterial, sprite);
-        slot = _batches.Count;
-        _batches.Add(new BatchLists(mat));
-        _keyToSlot.Add(key, slot);
-        _batchCount = _batches.Count;
-        return slot;
-    }
-
-    private Material GetOrCreateEffectMaterial(BlockSpriteKey key, Sprite sprite)
-    {
-        if (_effectMaterials.TryGetValue(key, out Material mat))
-            return mat;
-        mat = UGraphic.CreateMaterial(_baseMaterial, sprite);
-        mat.SetTexture("_BaseMap", sprite.texture);
-        _effectMaterials.Add(key, mat);
-        return mat;
-    }
-
-    private void AddMatrix(int slot, Matrix4x4 matrix)
-    {
-        List<List<Matrix4x4>> matrices = _batches[slot].matrices;
-        List<Matrix4x4> curList = matrices[matrices.Count - 1];
-        if (1000 <= curList.Count) {
-            curList = new List<Matrix4x4>(1000);
-            matrices.Add(curList);
-        }
-        curList.Add(matrix);
-    }
-
-    private void ClearAllBatches()
-    {
-        for (int i = 0; i < _batchCount; ++i) {
-            List<List<Matrix4x4>> matrices = _batches[i].matrices;
-            for (int j = 0; j < matrices.Count; ++j)
-                matrices[j].Clear();
-            while (matrices.Count > 1)
-                matrices.RemoveAt(matrices.Count - 1);
-        }
+        _registry = new BatchRegistry(_baseMaterial);
     }
 
     public void RunAfterFrame()
@@ -1722,7 +1833,7 @@ public class BlockBatchBuilder : MonoBehaviour
         BlockMap blockMap = game.Blocks;
         int capacity = pool.Capacity;
 
-        ClearAllBatches();
+        _registry.ClearAll();
 
         for (int adress = 0; adress < capacity; ++adress) {
             if (!pool.IsExist(adress))
@@ -1746,19 +1857,11 @@ public class BlockBatchBuilder : MonoBehaviour
 
             Vector3 scale = new Vector3(so.Size.x, so.Size.y, 1f);
 
-            // 이펙트 투명도 계산 (삼각파: 0→1→0)
-            float effectAlpha = 0f;
-            float cycle = so.EffectCycleTime;
-            if (cycle > 0f) {
-                float t = block.effectTimer / cycle; // 0 ~ 2
-                effectAlpha = (t <= 1f) ? t : 2f - t;
-            }
-
             int spriteCount = so.SpriteCount;
             for (int si = 0; si < spriteCount; ++si) {
                 SpriteInfo info = so.GetSpriteInfo(si);
 
-                float posZ = -30f + info.offset.z;
+                float posZ = Const.WORLD_BLOCK + info.offset.z;
                 float offsetX = info.offset.x;
                 float offsetY = info.offset.y;
 
@@ -1778,10 +1881,6 @@ public class BlockBatchBuilder : MonoBehaviour
                         rot = UGraphic.AngleToQuaternion(rotationAngle);
                         pos = UGraphic.RotateOffset(baseX, baseY, offsetX, offsetY, rotationAngle, posZ);
                         break;
-                    case ESpriteType.Effect:
-                        // Effect는 개별 DrawMesh로 처리 (아래 별도)
-                        DrawEffect(block, so, info, si, baseX, baseY, blockAngle, scale, effectAlpha);
-                        continue; // 배치에 추가하지 않음
                     case ESpriteType.Static:
                     default:
                         rot = UGraphic.AngleToQuaternion(blockAngle);
@@ -1790,40 +1889,13 @@ public class BlockBatchBuilder : MonoBehaviour
                 }
 
                 BlockSpriteKey key = new BlockSpriteKey(block.id, si);
-                int slot = GetOrCreateSlot(key, info.sprite);
+                int slot = _registry.GetOrCreateSlot(key, info.sprite);
                 Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
-                AddMatrix(slot, matrix);
+                _registry.Add(slot, in matrix);
             }
         }
 
-        // 배치 그리기 (Body, Turret, Rotation, Static)
-        for (int i = 0; i < _batchCount; ++i) {
-            Material mat = _batches[i].Mat;
-            List<List<Matrix4x4>> matrices = _batches[i].matrices;
-            for (int j = 0; j < matrices.Count; ++j) {
-                if (matrices[j].Count <= 0) continue;
-                Graphics.DrawMeshInstanced(_mesh, 0, mat, matrices[j]);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Effect 스프라이트를 개별 투명도로 렌더링합니다.
-    /// </summary>
-    private void DrawEffect(
-        in BlockSingle block, SO_Block so, in SpriteInfo info, int spriteIndex,
-        float baseX, float baseY, float blockAngle, Vector3 scale, float alpha)
-    {
-        float posZ = -30f + info.offset.z;
-        Quaternion rot = UGraphic.AngleToQuaternion(blockAngle);
-        Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
-        Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
-
-        BlockSpriteKey key = new BlockSpriteKey(block.id, spriteIndex);
-        Material mat = GetOrCreateEffectMaterial(key, info.sprite);
-
-        _effectMpb.SetColor(_colorID, new Color(1f, 1f, 1f, alpha));
-        Graphics.DrawMesh(_mesh, matrix, mat, 0, null, 0, _effectMpb);
+        _registry.DrawAll(_mesh);
     }
     #endregion
 }
@@ -1934,7 +2006,8 @@ public class CameraManager : MonoBehaviour
 // 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Graphic\Camera\CameraTrackPlayer.cs 
 // ======================================================== 
  
-﻿using UnityEngine;
+﻿using static Const;
+using UnityEngine;
 
 /// <summary>
 /// 아무 오브젝트에 부착하는 스크립트입니다.
@@ -1950,7 +2023,6 @@ public class CameraTrackPlayer : MonoBehaviour
     [SerializeField] private Transform _target;
 
     [Header("사용자 정의 설정")]
-    [SerializeField] private float _zOffset = -100f;
     [SerializeField] private float _sharpness = 15f;
     [SerializeField] private float _outlineOffset = 1.5f;
     #endregion
@@ -1969,7 +2041,7 @@ public class CameraTrackPlayer : MonoBehaviour
         Vector3 desiredPos = _target.position;
         desiredPos.x = Mathf.Clamp(desiredPos.x, _minX, _maxX);
         desiredPos.y = Mathf.Clamp(desiredPos.y, _minY, _maxY);
-        desiredPos.z = _zOffset;
+        desiredPos.z = PLAYER_CAMERA;
         return desiredPos;
     }
     // 카메라의 위치를 플레이어에게 순간이동시킵니다.
@@ -2210,37 +2282,53 @@ public class SoundAdmin : MonoBehaviour
     [Header("필수 요소 등록")]
     [SerializeField] private ClipPair[] _clipPairs;
     [SerializeField] private AudioSource _source;
+    [SerializeField] private PlayerArchitect _playerArchitect;
+
     [Header("사용자 정의 설정")]
     [SerializeField] private float _volume = 1f;
     [SerializeField] private bool _usePitch = true; // 사운드 울리기
     [SerializeField] private Vector2 _pitchRange = new Vector2(0.95f, 1.05f);
     #endregion
+
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     private Dictionary<ESound, AudioClip> _clips;
     #endregion
+
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     // 인스펙터 유효성 검사
     public void Verification()
     {
         De.IsNull(_source);
         De.IsNull(_clipPairs);
+        De.IsNull(_playerArchitect);
     }
 
     public void Initialized()
     {
-        // 건설 사운드
-        PlayerArchitect.OnBuildEffect += (pos, sx, sy) => {
-            if (sx <= 1.001f) PlaySound(ESound.BlockBuild_1);
-            else if (sx <= 2.001f) PlaySound(ESound.BlockBuild_2);
-            else PlaySound(ESound.BlockBuild_3);
-        };
-
-        // 철거 사운드
-        PlayerArchitect.OnDestroyEffect += (pos, sx, sy) => {
-            if (sx <= 1.001f) PlaySound(ESound.BlockDestory_1);
-            else if (sx <= 2.001f) PlaySound(ESound.BlockDestory_2);
-            else PlaySound(ESound.BlockDestory_3);
-        };
+        _playerArchitect.OnBuildEffect += BuildSound;
+        _playerArchitect.OnDestroyEffect += DemolishSound;
+    }
+    // 건설 사운드
+    private void BuildSound(Vector2 pos, float sizeX, float sizeY)
+    {
+        if (sizeX <= 1.001f) {
+            PlaySound(ESound.BlockBuild_1);
+        } else if (sizeX <= 2.001f) {
+            PlaySound(ESound.BlockBuild_2);
+        } else {
+            PlaySound(ESound.BlockBuild_3);
+        }
+    }
+    // 철거 사운드
+    private void DemolishSound(Vector2 pos, float sizeX, float sizeY)
+    {
+        if (sizeX <= 1.001f) {
+            PlaySound(ESound.BlockDestory_1);
+        } else if (sizeX <= 2.001f) {
+            PlaySound(ESound.BlockDestory_2);
+        } else {
+            PlaySound(ESound.BlockDestory_3);
+        }
     }
 
     // 외부에 전달할 데이터 생성
@@ -2284,7 +2372,13 @@ public class SoundAdmin : MonoBehaviour
         _source.PlayOneShot(clip, volumeScale);
     }
     #endregion
+
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메시지 함수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    private void OnDestroy()
+    {
+        _playerArchitect.OnBuildEffect -= BuildSound;
+        _playerArchitect.OnDestroyEffect -= DemolishSound;
+    }
     #endregion
 }
  
@@ -2384,7 +2478,7 @@ public class TilePainter : MonoBehaviour
 
         for (int index = 0; index < length; ++index) {
             ref readonly TileSingle tile = ref map.Read(index);
-            if (tile.IsVoid())
+            if (tile.IsVoid)
                 continue;
             ETile id = tile.id;
 
@@ -2397,8 +2491,8 @@ public class TilePainter : MonoBehaviour
             }
 
             // 행렬 생성 (셀 중심)
-            (int gx, int gy) = UGrid.IndexToGrid(index, width);
-            Vector3 pos = new Vector3(gx + 0.5f, gy + 0.5f, 0f);
+            (int gridX, int gridY) = UGrid.IndexToGrid(index, width);
+            Vector3 pos = new Vector3(gridX + 0.5f, gridY + 0.5f, 0f);
             Matrix4x4 matrix = Matrix4x4.TRS(pos, Quaternion.identity, Vector3.one);
 
             // 배치에 추가
@@ -2422,8 +2516,10 @@ public class TilePainter : MonoBehaviour
     public void RunAfterFrame()
     {
         for (int i = 0; i < _batchCount; ++i) {
+            // 캐싱
             List<List<Matrix4x4>> matrices = _batches[i].matrices;
             Material mat = _batches[i].Mat;
+            // 구워둔 타일 반복
             for (int j = 0; j < matrices.Count; ++j) {
                 Graphics.DrawMeshInstanced(_mesh, 0, mat, matrices[j]);
             }
@@ -2436,23 +2532,25 @@ public class TilePainter : MonoBehaviour
 // 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Graphic\User_Interface\BuildEffectPainter.cs 
 // ======================================================== 
  
-﻿using UnityEngine;
+﻿using static Const;
+using UnityEngine;
 
 /// <summary>
-/// 유저 인터페이스 매니저 오브젝트에 부착하는 C# 스크립트입니다.
-/// 건설/철거 완료 시 테두리 사각형이 블록 크기에서 시작하여 커지며 사라지는 이펙트를 표시합니다.
+/// 건설/철거 완료 시 테두리 사각형이 확대되며 사라지는 이펙트를 표시합니다.
 /// PlayerArchitect.OnBuildEffect / OnDestroyEffect 이벤트를 구독합니다.
 /// </summary>
 public class BuildEffectPainter : MonoBehaviour
 {
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 인스펙터 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    [Header("필수 요소 등록")]
+    [SerializeField] private PlayerArchitect _playerArchitect;
+
     [Header("사용자 정의 설정")]
     [SerializeField] private Color _buildColor = new Color(1f, 0.85f, 0.3f, 0.8f);
     [SerializeField] private Color _destroyColor = new Color(1f, 0.2f, 0.2f, 0.8f);
     [SerializeField] private float _duration = 0.3f;
     [SerializeField] private float _expandSize = 1.0f;
     [SerializeField] private float _lineWidth = 0.06f;
-    [SerializeField] private float _zDepth = -35f;
     [SerializeField] private int _poolSize = 12;
     #endregion
 
@@ -2462,8 +2560,8 @@ public class BuildEffectPainter : MonoBehaviour
         public LineRenderer line;
         public float startTime;
         public Vector2 center;
-        public float startHalfW;  // 블록 절반 너비
-        public float startHalfH;  // 블록 절반 높이
+        public float startHalfW;
+        public float startHalfH;
         public Color color;
         public bool active;
     }
@@ -2472,14 +2570,19 @@ public class BuildEffectPainter : MonoBehaviour
     private int _nextIndex;
     #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    public void Verification() { }
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    public void Verification() {
+        De.IsNull(_playerArchitect);
+    }
 
+    /// <summary>
+    /// LineRenderer 풀 생성 및 이벤트 구독
+    /// </summary>
     public void Initialize()
     {
         Material mat = new Material(Shader.Find("Sprites/Default"));
-
         _pool = new EffectInstance[_poolSize];
+
         for (int i = 0; i < _poolSize; ++i) {
             GameObject go = new GameObject($"BuildEffect_{i}");
             go.transform.SetParent(transform);
@@ -2494,30 +2597,64 @@ public class BuildEffectPainter : MonoBehaviour
             line.material = mat;
             line.enabled = false;
 
-            _pool[i] = new EffectInstance
-            {
-                line = line,
-                active = false
-            };
+            _pool[i] = new EffectInstance { line = line, active = false };
         }
         _nextIndex = 0;
 
-        PlayerArchitect.OnBuildEffect += OnBuild;
-        PlayerArchitect.OnDestroyEffect += OnDestroye;
+        _playerArchitect.OnBuildEffect += OnBuild;
+        _playerArchitect.OnDestroyEffect += OnDestroyed;
     }
 
-    private void OnDisable()
+    /// <summary>
+    /// 매 프레임 활성 이펙트의 크기·알파를 갱신합니다.
+    /// </summary>
+    public void RunAfterFrame()
     {
-        PlayerArchitect.OnBuildEffect -= OnBuild;
-        PlayerArchitect.OnDestroyEffect -= OnDestroye;
-    }
+        float now = Time.time;
+        float z = BUILD_EFFECT;
 
+        for (int i = 0; i < _poolSize; ++i) {
+            ref EffectInstance inst = ref _pool[i];
+            if (!inst.active)
+                continue;
+
+            float elapsed = now - inst.startTime;
+            if (elapsed >= _duration) {
+                inst.active = false;
+                inst.line.enabled = false;
+                continue;
+            }
+
+            // 진행률
+            float t = elapsed / _duration;
+
+            // 크기 확장
+            float hw = inst.startHalfW + _expandSize * t;
+            float hh = inst.startHalfH + _expandSize * t;
+
+            // 알파 감쇠
+            Color c = inst.color;
+            c.a = Mathf.Lerp(inst.color.a, 0f, t);
+            inst.line.startColor = c;
+            inst.line.endColor = c;
+
+            float cx = inst.center.x;
+            float cy = inst.center.y;
+            inst.line.SetPosition(0, new Vector3(cx - hw, cy - hh, z));
+            inst.line.SetPosition(1, new Vector3(cx + hw, cy - hh, z));
+            inst.line.SetPosition(2, new Vector3(cx + hw, cy + hh, z));
+            inst.line.SetPosition(3, new Vector3(cx - hw, cy + hh, z));
+        }
+    }
+    #endregion
+
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     private void OnBuild(Vector2 center, float sizeX, float sizeY)
     {
         Spawn(center, sizeX, sizeY, _buildColor);
     }
 
-    private void OnDestroye(Vector2 center, float sizeX, float sizeY)
+    private void OnDestroyed(Vector2 center, float sizeX, float sizeY)
     {
         Spawn(center, sizeX, sizeY, _destroyColor);
     }
@@ -2536,42 +2673,13 @@ public class BuildEffectPainter : MonoBehaviour
         inst.line.endColor = color;
         _nextIndex = (_nextIndex + 1) % _poolSize;
     }
+    #endregion
 
-    public void RunAfterFrame()
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메시지 함수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    private void OnDisable()
     {
-        float now = Time.time;
-        float z = _zDepth;
-
-        for (int i = 0; i < _poolSize; ++i) {
-            ref EffectInstance inst = ref _pool[i];
-            if (!inst.active)
-                continue;
-
-            float elapsed = now - inst.startTime;
-            if (elapsed >= _duration) {
-                inst.active = false;
-                inst.line.enabled = false;
-                continue;
-            }
-
-            float t = elapsed / _duration;
-            // 크기: 블록 크기에서 expandSize만큼 추가로 커짐
-            float expand = _expandSize * t;
-            float hw = inst.startHalfW + expand;
-            float hh = inst.startHalfH + expand;
-            // 알파: 1 → 0
-            Color c = inst.color;
-            c.a = Mathf.Lerp(inst.color.a, 0f, t);
-            inst.line.startColor = c;
-            inst.line.endColor = c;
-
-            float cx = inst.center.x;
-            float cy = inst.center.y;
-            inst.line.SetPosition(0, new Vector3(cx - hw, cy - hh, z));
-            inst.line.SetPosition(1, new Vector3(cx + hw, cy - hh, z));
-            inst.line.SetPosition(2, new Vector3(cx + hw, cy + hh, z));
-            inst.line.SetPosition(3, new Vector3(cx - hw, cy + hh, z));
-        }
+        _playerArchitect.OnBuildEffect -= OnBuild;
+        _playerArchitect.OnDestroyEffect -= OnDestroyed;
     }
     #endregion
 }
@@ -2710,7 +2818,7 @@ public class DemolishAreaPainter : MonoBehaviour
         float right = player.demolishMaxX + 1f;
         float bottom = player.demolishMinY;
         float top = player.demolishMaxY + 1f;
-        float z = 0f; // LineRenderer는 sortingOrder로 깊이 제어
+        float z = Const.DEMOLISH_SQUARE; // LineRenderer는 sortingOrder로 깊이 제어
 
         _line.SetPosition(0, new Vector3(left, bottom, z));
         _line.SetPosition(1, new Vector3(right, bottom, z));
@@ -2728,9 +2836,7 @@ public class DemolishAreaPainter : MonoBehaviour
 using UnityEngine;
 
 /// <summary>
-/// 유저 인터페이스 매니저 오브젝트에 부착하는 C# 스크립트입니다.
-/// 매 프레임 designs를 순회하여 디자인 블록(건설 예정)의 렌더링 배치 데이터를 구성합니다.
-/// BatchLists 기반으로 키 조회 없이 인덱스로 직접 접근합니다.
+/// 매 프레임 designs를 순회하여 디자인 블록의 렌더링 배치 데이터를 구성하고 그립니다.
 /// </summary>
 public class DesignBatchBuilder : MonoBehaviour
 {
@@ -2744,12 +2850,10 @@ public class DesignBatchBuilder : MonoBehaviour
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    private Dictionary<BlockSpriteKey, int> _keyToSlot;
-    private List<BatchLists> _batches;
-    private int _batchCount;
+    private BatchRegistry _registry;
     #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public void Verification()
     {
         De.IsNull(_mesh);
@@ -2758,69 +2862,30 @@ public class DesignBatchBuilder : MonoBehaviour
 
     public void Initialize()
     {
-        _keyToSlot = new Dictionary<BlockSpriteKey, int>();
-        _batches = new List<BatchLists>();
-        _batchCount = 0;
+        _registry = new BatchRegistry(_baseMaterial, _alpha);
     }
 
-    private int GetOrCreateSlot(BlockSpriteKey key, Sprite sprite)
-    {
-        if (_keyToSlot.TryGetValue(key, out int slot))
-            return slot;
-        Material mat = UGraphic.CreateMaterial(_baseMaterial, sprite);
-        Color c = mat.color;
-        c.a = _alpha;
-        mat.color = c;
-        slot = _batches.Count;
-        _batches.Add(new BatchLists(mat));
-        _keyToSlot.Add(key, slot);
-        _batchCount = _batches.Count;
-        return slot;
-    }
-
-    private void AddMatrix(int slot, Matrix4x4 matrix)
-    {
-        List<List<Matrix4x4>> matrices = _batches[slot].matrices;
-        List<Matrix4x4> curList = matrices[matrices.Count - 1];
-        if (1000 <= curList.Count) {
-            curList = new List<Matrix4x4>(1000);
-            matrices.Add(curList);
-        }
-        curList.Add(matrix);
-    }
-
-    private void ClearAllBatches()
-    {
-        for (int i = 0; i < _batchCount; ++i) {
-            List<List<Matrix4x4>> matrices = _batches[i].matrices;
-            for (int j = 0; j < matrices.Count; ++j)
-                matrices[j].Clear();
-            while (matrices.Count > 1)
-                matrices.RemoveAt(matrices.Count - 1);
-        }
-    }
-
+    /// <summary>
+    /// 매 프레임 designs 순회 → 배치 구성 → DrawMeshInstanced
+    /// </summary>
     public void RunAfterFrame()
     {
         GameData game = GameData.ins;
-        if (De.IsNull(game)) return;
-        if (De.IsNull(game.Player)) return;
+        if (De.IsNull(game) || De.IsNull(game.Player)) return;
 
         var designs = game.Player.designs;
-        ClearAllBatches();
+        _registry.ClearAll();
 
         if (designs.Count <= 0)
             return;
 
         BlockMap blockMap = game.Blocks;
+        var blockSO = game.BlockDatabase;
 
-        foreach (var kvp in designs) {
-            BuildOrder order = kvp.Value;
+        foreach (var order in designs.Values) {
             if (order.type != EOrderType.Build)
                 continue;
-
-            EBlock id = order.id;
-            if (!game.BlockDatabase.TryGetValue(id, out SO_Block so))
+            if (!blockSO.TryGetValue(order.id, out SO_Block so))
                 continue;
 
             Vector2Int size = new Vector2Int((int)so.Size.x, (int)so.Size.y);
@@ -2828,45 +2893,25 @@ public class DesignBatchBuilder : MonoBehaviour
             float baseX = renderPos.x;
             float baseY = renderPos.y;
             float blockAngle = UGrid.RotationToAngle(order.rotation);
-
-            // 모든 스프라이트에 블록 크기 적용
             Vector3 scale = new Vector3(so.Size.x, so.Size.y, 1f);
 
             int spriteCount = so.SpriteCount;
             for (int si = 0; si < spriteCount; ++si) {
                 SpriteInfo info = so.GetSpriteInfo(si);
-                BlockSpriteKey key = new BlockSpriteKey(id, si);
-                int slot = GetOrCreateSlot(key, info.sprite);
+                int slot = _registry.GetOrCreateSlot(new BlockSpriteKey(order.id, si), info.sprite);
+                float posZ = Const.DESIGN_BLOCK + info.offset.z;
 
-                float posZ = -30.5f + info.offset.z;
-
-                Quaternion rot;
-                switch (info.type) {
-                    case ESpriteType.Body:
-                    case ESpriteType.Turret:
-                    case ESpriteType.Rotation:
-                        rot = UGraphic.AngleToQuaternion(blockAngle);
-                        break;
-                    default:
-                        rot = Quaternion.identity;
-                        break;
-                }
+                Quaternion rot = (info.type == ESpriteType.Static || info.type == ESpriteType.Effect)
+                    ? Quaternion.identity
+                    : UGraphic.AngleToQuaternion(blockAngle);
 
                 Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
                 Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
-                AddMatrix(slot, matrix);
+                _registry.Add(slot, in matrix);
             }
         }
 
-        // 그리기
-        for (int i = 0; i < _batchCount; ++i) {
-            Material mat = _batches[i].Mat;
-            List<List<Matrix4x4>> matrices = _batches[i].matrices;
-            for (int j = 0; j < matrices.Count; ++j) {
-                if (matrices[j].Count <= 0) continue;
-                Graphics.DrawMeshInstanced(_mesh, 0, mat, matrices[j]);
-            }
-        }
+        _registry.DrawAll(_mesh);
     }
     #endregion
 }
@@ -2879,8 +2924,7 @@ public class DesignBatchBuilder : MonoBehaviour
 using UnityEngine;
 
 /// <summary>
-/// 유저 인터페이스 매니저 오브젝트에 부착하는 C# 스크립트입니다.
-/// designs에서 EOrderType.Destroy인 블록에 빨간색 테두리를 매 프레임 그립니다.
+/// Destroy 디자인 블록에 빨간색 테두리를 매 프레임 그립니다.
 /// LineRenderer 풀링으로 동적 개수를 처리합니다.
 /// </summary>
 public class DestroyMarkerPainter : MonoBehaviour
@@ -2889,7 +2933,6 @@ public class DestroyMarkerPainter : MonoBehaviour
     [Header("사용자 정의 설정")]
     [SerializeField] private Color _markerColor = new Color(1f, 0.2f, 0.2f, 0.6f);
     [SerializeField] private float _lineWidth = 0.06f;
-    [SerializeField] private float _zDepth = -34f;
     [SerializeField] private int _initialPoolSize = 16;
     #endregion
 
@@ -2899,7 +2942,7 @@ public class DestroyMarkerPainter : MonoBehaviour
     private int _activeCount;
     #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public void Verification() { }
 
     public void Initialize()
@@ -2911,6 +2954,69 @@ public class DestroyMarkerPainter : MonoBehaviour
             _pool.Add(CreateLine(i));
     }
 
+    /// <summary>
+    /// 매 프레임 Destroy 디자인을 순회하여 마커를 갱신합니다.
+    /// </summary>
+    public void RunAfterFrame()
+    {
+        GameData game = GameData.ins;
+        if (game == null || game.Player == null) {
+            HideAll();
+            return;
+        }
+
+        var designs = game.Player.designs;
+        BlockMap blockMap = game.Blocks;
+        var blockSO = game.BlockDatabase;
+        int used = 0;
+
+        foreach (var kvp in designs) {
+            BuildOrder order = kvp.Value;
+            if (order.type != EOrderType.Destroy)
+                continue;
+
+            // 블록 크기 조회
+            float sizeX = 1f;
+            float sizeY = 1f;
+            if (blockSO.TryGetValue(order.id, out SO_Block so)) {
+                sizeX = so.Size.x;
+                sizeY = so.Size.y;
+            }
+
+            Vector2Int size = new Vector2Int((int)sizeX, (int)sizeY);
+            Vector2 renderPos = blockMap.GetRenderPos(order.index, size, order.rotation);
+
+            // 회전 시 시각적 크기 스왑
+            float hw, hh;
+            if (order.rotation == ERotation.Right || order.rotation == ERotation.Left) {
+                hw = sizeY * 0.5f;
+                hh = sizeX * 0.5f;
+            } else {
+                hw = sizeX * 0.5f;
+                hh = sizeY * 0.5f;
+            }
+
+            // 사각형 그리기
+            float z = Const.DEMOLISH_MARKER;
+            LineRenderer line = GetLine(used);
+            line.enabled = true;
+            line.SetPosition(0, new Vector3(renderPos.x - hw, renderPos.y - hh, z));
+            line.SetPosition(1, new Vector3(renderPos.x + hw, renderPos.y - hh, z));
+            line.SetPosition(2, new Vector3(renderPos.x + hw, renderPos.y + hh, z));
+            line.SetPosition(3, new Vector3(renderPos.x - hw, renderPos.y + hh, z));
+            ++used;
+        }
+
+        // 미사용 비활성화
+        for (int i = used; i < _activeCount; ++i) {
+            if (i < _pool.Count)
+                _pool[i].enabled = false;
+        }
+        _activeCount = used;
+    }
+    #endregion
+
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     private LineRenderer CreateLine(int idx)
     {
         GameObject go = new GameObject($"DestroyMarker_{idx}");
@@ -2936,67 +3042,6 @@ public class DestroyMarkerPainter : MonoBehaviour
         return _pool[index];
     }
 
-    public void RunAfterFrame()
-    {
-        GameData game = GameData.ins;
-        if (game == null || game.Player == null) {
-            HideAll();
-            return;
-        }
-
-        var designs = game.Player.designs;
-        BlockMap blockMap = game.Blocks;
-        Dictionary<EBlock, SO_Block> soDb = game.BlockDatabase;
-
-        int used = 0;
-
-        foreach (var kvp in designs) {
-            BuildOrder order = kvp.Value;
-            if (order.type != EOrderType.Destroy)
-                continue;
-
-            int centerIndex = order.index;
-
-            // 블록 크기 → 렌더링 영역 계산
-            float sizeX = 1f;
-            float sizeY = 1f;
-            if (soDb.TryGetValue(order.id, out SO_Block so)) {
-                sizeX = so.Size.x;
-                sizeY = so.Size.y;
-            }
-            Vector2Int size = new Vector2Int((int)sizeX, (int)sizeY);
-            Vector2 renderPos = blockMap.GetRenderPos(centerIndex, size, order.rotation);
-
-            float cx = renderPos.x;
-            float cy = renderPos.y;
-            // 회전 시 시각적 크기 스왑
-            float hw, hh;
-            if (order.rotation == ERotation.Right || order.rotation == ERotation.Left) {
-                hw = sizeY * 0.5f;
-                hh = sizeX * 0.5f;
-            } else {
-                hw = sizeX * 0.5f;
-                hh = sizeY * 0.5f;
-            }
-
-            float z = _zDepth;
-            LineRenderer line = GetLine(used);
-            line.enabled = true;
-            line.SetPosition(0, new Vector3(cx - hw, cy - hh, z));
-            line.SetPosition(1, new Vector3(cx + hw, cy - hh, z));
-            line.SetPosition(2, new Vector3(cx + hw, cy + hh, z));
-            line.SetPosition(3, new Vector3(cx - hw, cy + hh, z));
-            ++used;
-        }
-
-        // 사용하지 않은 LineRenderer 비활성화
-        for (int i = used; i < _activeCount; ++i) {
-            if (i < _pool.Count)
-                _pool[i].enabled = false;
-        }
-        _activeCount = used;
-    }
-
     private void HideAll()
     {
         for (int i = 0; i < _activeCount; ++i) {
@@ -3016,13 +3061,13 @@ public class DestroyMarkerPainter : MonoBehaviour
 using UnityEngine;
 
 /// <summary>
-/// 유저 인터페이스 매니저 오브젝트에 부착하는 C# 스크립트입니다.
-/// 매 프레임 selecteds(List)를 순회하여 반투명 블록의 배치 데이터를 구성합니다.
+/// 매 프레임 selecteds를 순회하여 반투명 블록의 배치 데이터를 구성하고 그립니다.
 /// </summary>
 public class SelectedBatchBuilder : MonoBehaviour
 {
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 인스펙터 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     [Header("필수 요소 등록")]
+    [SerializeField] private Mesh _mesh;
     [SerializeField] private Material _baseMaterial;
 
     [Header("사용자 정의 설정")]
@@ -3030,92 +3075,35 @@ public class SelectedBatchBuilder : MonoBehaviour
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    private Dictionary<BlockSpriteKey, Material> _materialCache;
+    private BatchRegistry _registry;
     private Dictionary<EBlock, SO_Block> _soCache;
-    private Dictionary<BlockSpriteKey, List<List<Matrix4x4>>> _batchMap;
-    private List<BlockSpriteKey> _activeKeys;
     #endregion
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 접근자 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    public Dictionary<BlockSpriteKey, Material> MaterialCache => _materialCache;
-    public Dictionary<BlockSpriteKey, List<List<Matrix4x4>>> BatchMap => _batchMap;
-    public List<BlockSpriteKey> ActiveKeys => _activeKeys;
-    #endregion
-
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     public void Verification()
     {
+        De.IsNull(_mesh);
         De.IsNull(_baseMaterial);
     }
 
     public void Initialize()
     {
-        _materialCache = new Dictionary<BlockSpriteKey, Material>();
+        _registry = new BatchRegistry(_baseMaterial, _alpha);
         _soCache = new Dictionary<EBlock, SO_Block>();
-        _batchMap = new Dictionary<BlockSpriteKey, List<List<Matrix4x4>>>();
-        _activeKeys = new List<BlockSpriteKey>();
-    }
-
-    private SO_Block GetSO(EBlock id)
-    {
-        if (_soCache.TryGetValue(id, out SO_Block so))
-            return so;
-        if (!GameData.ins.BlockDatabase.TryGetValue(id, out so))
-            return null;
-        _soCache.Add(id, so);
-        return so;
-    }
-
-    private Material GetOrCreateMaterial(BlockSpriteKey key, Sprite sprite)
-    {
-        if (_materialCache.TryGetValue(key, out Material mat))
-            return mat;
-        if (sprite == null)
-            return null;
-        mat = UGraphic.CreateMaterial(_baseMaterial, sprite);
-        Color color = mat.color;
-        color.a = _alpha;
-        mat.color = color;
-        _materialCache.Add(key, mat);
-        return mat;
     }
 
     /// <summary>
-    /// selected 전용 렌더링 좌표 계산.
-    /// BlockMap.GetRenderPos는 인덱스 기반이라 맵 밖에서 사용할 수 없으므로,
-    /// 그리드 좌표(float)로부터 직접 계산합니다.
-    /// </summary>
-    private static Vector2 GetSelectedRenderPos(float gx, float gy, Vector2Int size, ERotation rotation)
-    {
-        int sizeX = size.x;
-        int sizeY = size.y;
-        switch (rotation) {
-            case ERotation.Up:
-                return new Vector2(gx + sizeX * 0.5f, gy + sizeY * 0.5f);
-            case ERotation.Right:
-                return new Vector2(gx + sizeY * 0.5f, gy - sizeX * 0.5f);
-            case ERotation.Down:
-                return new Vector2(gx - sizeX * 0.5f, gy - sizeY * 0.5f);
-            case ERotation.Left:
-                return new Vector2(gx - sizeY * 0.5f, gy + sizeX * 0.5f);
-            default:
-                return new Vector2(gx + sizeX * 0.5f, gy + sizeY * 0.5f);
-        }
-    }
-
-    /// <summary>
-    /// 매 프레임 selecteds를 순회하여 렌더링 배치 데이터를 재구성합니다.
+    /// 매 프레임 selecteds 순회 → 배치 구성 → DrawMeshInstanced
     /// </summary>
     public void RunAfterFrame()
     {
         GameData game = GameData.ins;
-        if (De.IsNull(game)) return;
-        if (De.IsNull(game.Player)) return;
+        if (De.IsNull(game) || De.IsNull(game.Player)) return;
 
         List<SelectedBlock> selecteds = game.Player.selecteds;
         int count = selecteds.Count;
 
-        UGraphic.ClearBatches(_batchMap, _activeKeys);
+        _registry.ClearAll();
 
         if (count <= 0)
             return;
@@ -3124,7 +3112,7 @@ public class SelectedBatchBuilder : MonoBehaviour
         float cursorX = cursor.x;
         float cursorY = cursor.y;
 
-        // 드래그 타일링에서는 모든 selected가 같은 id → SO 1번만 조회
+        // SO 연속 캐싱 (드래그 타일링에서 같은 id 반복)
         EBlock lastId = EBlock.None;
         SO_Block lastSO = null;
         float lastSizeX = 0f;
@@ -3137,7 +3125,7 @@ public class SelectedBatchBuilder : MonoBehaviour
             if (sel.id == EBlock.None)
                 continue;
 
-            // SO 캐싱 (같은 id가 연속되면 Dictionary 조회 스킵)
+            // SO 조회 (같은 id 연속 시 스킵)
             if (sel.id != lastId) {
                 lastId = sel.id;
                 lastSO = GetSO(sel.id);
@@ -3149,79 +3137,59 @@ public class SelectedBatchBuilder : MonoBehaviour
             }
             if (lastSO == null) continue;
 
-            // 그리드 좌표 (정수로 스냅)
-            float gx = Mathf.Floor(cursorX + sel.offsetX);
-            float gy = Mathf.Floor(cursorY + sel.offsetY);
-
-            // 렌더링 중심 (맵 밖이어도 계산 가능)
-            Vector2 renderPos = GetSelectedRenderPos(gx, gy, lastSize, sel.rotation);
+            // 그리드 스냅 → 렌더링 중심
+            float gridX = Mathf.Floor(cursorX + sel.offsetX);
+            float gridY = Mathf.Floor(cursorY + sel.offsetY);
+            Vector2 renderPos = GetSelectedRenderPos(gridX, gridY, lastSize, sel.rotation);
             float baseX = renderPos.x;
             float baseY = renderPos.y;
             float blockAngle = UGrid.RotationToAngle(sel.rotation);
+            Vector3 scale = new Vector3(lastSizeX, lastSizeY, 1f);
 
             for (int si = 0; si < lastSpriteCount; ++si) {
                 SpriteInfo info = lastSO.GetSpriteInfo(si);
-                BlockSpriteKey spriteKey = new BlockSpriteKey(sel.id, si);
+                int slot = _registry.GetOrCreateSlot(new BlockSpriteKey(sel.id, si), info.sprite);
+                float posZ = Const.SELECTED_BLOCK + info.offset.z;
 
-                GetOrCreateMaterial(spriteKey, info.sprite);
-
-                float posZ = -31f + info.offset.z;
-
-                Quaternion rot;
-                switch (info.type) {
-                    case ESpriteType.Body:
-                    case ESpriteType.Turret:
-                    case ESpriteType.Rotation:
-                        rot = UGraphic.AngleToQuaternion(blockAngle);
-                        break;
-                    default:
-                        rot = Quaternion.identity;
-                        break;
-                }
+                Quaternion rot = (info.type == ESpriteType.Static || info.type == ESpriteType.Effect)
+                    ? Quaternion.identity
+                    : UGraphic.AngleToQuaternion(blockAngle);
 
                 Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
-                Vector3 scale = new Vector3(lastSizeX, lastSizeY, 1f);
                 Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
-                UGraphic.AddMatrix(_batchMap, _activeKeys, spriteKey, matrix);
+                _registry.Add(slot, in matrix);
             }
         }
+
+        _registry.DrawAll(_mesh);
     }
     #endregion
-}
- 
-// ======================================================== 
-// 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Graphic\User_Interface\SelectedPainter.cs 
-// ======================================================== 
- 
-﻿using UnityEngine;
 
-/// <summary>
-/// 유저 인터페이스 매니저 오브젝트에 부착하는 C# 스크립트입니다.
-/// SelectedBatchBuilder가 구성한 배치 데이터를 DrawMeshInstanced로 그립니다.
-/// </summary>
-public class SelectedPainter : MonoBehaviour
-{
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 인스펙터 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    [Header("필수 요소 등록")]
-    [SerializeField] private Mesh _mesh;
-    [SerializeField] private SelectedBatchBuilder _batchBuilder;
-    #endregion
-
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    public void Verification()
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    private SO_Block GetSO(EBlock id)
     {
-        De.IsNull(_mesh);
-        De.IsNull(_batchBuilder);
+        if (_soCache.TryGetValue(id, out SO_Block so))
+            return so;
+        if (!GameData.ins.BlockDatabase.TryGetValue(id, out so))
+            return null;
+        _soCache.Add(id, so);
+        return so;
     }
 
-    public void RunAfterFrame()
+    /// <summary>
+    /// 맵 밖에서도 사용 가능한 selected 전용 렌더링 좌표 계산
+    /// </summary>
+    private static Vector2 GetSelectedRenderPos(float gridX, float gridY, Vector2Int size, ERotation rotation)
     {
-        UGraphic.DrawBatches(
-            _mesh,
-            _batchBuilder.BatchMap,
-            _batchBuilder.ActiveKeys,
-            _batchBuilder.MaterialCache
-        );
+        int sx = size.x;
+        int sy = size.y;
+        switch (rotation) {
+            case ERotation.Up: return new Vector2(gridX + sx * 0.5f, gridY + sy * 0.5f);
+            case ERotation.Right: return new Vector2(gridX + sy * 0.5f, gridY - sx * 0.5f);
+            case ERotation.Down: return new Vector2(gridX - sx * 0.5f, gridY - sy * 0.5f);
+            case ERotation.Left: return new Vector2(gridX - sy * 0.5f, gridY + sx * 0.5f);
+            default: return new Vector2(gridX + sx * 0.5f, gridY + sy * 0.5f);
+        }
     }
     #endregion
 }
@@ -3286,7 +3254,6 @@ public class UserInterfaceManager : MonoBehaviour
     [Header("필수 요소 등록")]
     [SerializeField] private UIBuildButton[] _uiBuildButton;
     [SerializeField] private SelectedBatchBuilder _selectedBatchBuilder;
-    [SerializeField] private SelectedPainter _selectedPainter;
     [SerializeField] private DesignBatchBuilder _designBatchBuilder;
     [SerializeField] private DemolishAreaPainter _demolishAreaPainter;
     [SerializeField] private BuildEffectPainter _buildEffectPainter;
@@ -3303,14 +3270,12 @@ public class UserInterfaceManager : MonoBehaviour
             De.IsNull(_uiBuildButton[i]);
         }
         De.IsNull(_selectedBatchBuilder);
-        De.IsNull(_selectedPainter);
         De.IsNull(_designBatchBuilder);
         De.IsNull(_demolishAreaPainter);
         De.IsNull(_buildEffectPainter);
         De.IsNull(_destroyMarkerPainter);
         De.IsNull(_copyAreaPainter);
         _selectedBatchBuilder.Verification();
-        _selectedPainter.Verification();
         _designBatchBuilder.Verification();
         _demolishAreaPainter.Verification();
         _buildEffectPainter.Verification();
@@ -3344,7 +3309,6 @@ public class UserInterfaceManager : MonoBehaviour
     public void RunAfterFrame()
     {
         _selectedBatchBuilder.RunAfterFrame();
-        _selectedPainter.RunAfterFrame();
         _designBatchBuilder.RunAfterFrame();
         _demolishAreaPainter.RunAfterFrame();
         _buildEffectPainter.RunAfterFrame();
@@ -3454,11 +3418,9 @@ public class BlockPartUpdater : MonoBehaviour
         for (int adress = 0; adress < capacity; ++adress) {
             if (!_pool.IsExist(adress))
                 continue;
-
             ref BlockSingle block = ref _pool.GetRef(adress);
             if (block.IsVoid())
                 continue;
-
             if (!_blockSO.TryGetValue(block.id, out SO_Block so))
                 continue;
 
@@ -3468,11 +3430,11 @@ public class BlockPartUpdater : MonoBehaviour
             float dy = playerY - renderPos.y;
             float targetAngle = Mathf.Atan2(dy, dx) * Mathf.Rad2Deg - 90f;
 
-            // ── partAngle_1 : Body (지수 보간) ──
+            // Body (지수 보간)
             float bodyDelta = Mathf.DeltaAngle(block.partAngle_1, targetAngle);
             block.partAngle_1 += bodyDelta * Mathf.Clamp01(so.BodyRotateSpeed * dt);
 
-            // ── partAngle_2 : Turret (일정 속도, 최단 경로) ──
+            // Turret (일정 속도, 플레이어 바라봄)
             float turretDelta = Mathf.DeltaAngle(block.partAngle_2, targetAngle);
             float maxStep = so.TurretRotateSpeed * dt;
             if (Mathf.Abs(turretDelta) <= maxStep)
@@ -3480,16 +3442,10 @@ public class BlockPartUpdater : MonoBehaviour
             else
                 block.partAngle_2 += Mathf.Sign(turretDelta) * maxStep;
 
-            // ── partAngle_3 : Rotation (자전) ──
+            // Rotation (자전)
             block.partAngle_3 += so.RotationSpeed * dt;
             if (block.partAngle_3 > 360f) block.partAngle_3 -= 360f;
             else if (block.partAngle_3 < -360f) block.partAngle_3 += 360f;
-
-            // ── effectTimer : Effect (삼각파 누적) ──
-            float fullCycle = so.EffectCycleTime * 2f;
-            block.effectTimer += dt;
-            if (block.effectTimer >= fullCycle)
-                block.effectTimer -= fullCycle;
         }
     }
     #endregion
@@ -3678,8 +3634,8 @@ public partial class PlayerArchitect
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 이벤트 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     // 건설/철거 시 외부에 알림 (center, sizeX, sizeY)
     // BuildEffectPainter, SoundAdmin 등이 구독
-    public static event System.Action<Vector2, float, float> OnBuildEffect;
-    public static event System.Action<Vector2, float, float> OnDestroyEffect;
+    public event System.Action<Vector2, float, float> OnBuildEffect;
+    public event System.Action<Vector2, float, float> OnDestroyEffect;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -3852,12 +3808,12 @@ public partial class PlayerArchitect
             return;
 
         Vector2 grid = UGrid.WorldToGrid(pos);
-        int gx = (int)grid.x;
-        int gy = (int)grid.y;
-        if (gx < 0 || _width <= gx || gy < 0 || _height <= gy)
+        int gridX = (int)grid.x;
+        int gridY = (int)grid.y;
+        if (gridX < 0 || _width <= gridX || gridY < 0 || _height <= gridY)
             return;
 
-        DemolishCell(UGrid.GridToIndex(gx, gy, _width));
+        DemolishCell(UGrid.GridToIndex(gridX, gridY, _width));
     }
 
     /// <summary>
@@ -3989,12 +3945,12 @@ public partial class PlayerArchitect
                 continue;
 
             // 그리드 스냅
-            int gx = Mathf.FloorToInt(cx + sel.offsetX);
-            int gy = Mathf.FloorToInt(cy + sel.offsetY);
-            if (gx < 0 || _width <= gx || gy < 0 || _height <= gy)
+            int gridX = Mathf.FloorToInt(cx + sel.offsetX);
+            int gridY = Mathf.FloorToInt(cy + sel.offsetY);
+            if (gridX < 0 || _width <= gridX || gridY < 0 || _height <= gridY)
                 continue;
 
-            int centerIndex = UGrid.GridToIndex(gx, gy, _width);
+            int centerIndex = UGrid.GridToIndex(gridX, gridY, _width);
 
             if (!_blockSO.TryGetValue(sel.id, out SO_Block so))
                 continue;
@@ -4491,10 +4447,6 @@ public class PlayerInput : MonoBehaviour
                 OnScrollDown?.Invoke();
             }
         }
-        // 게임 종료
-        if (Input.GetKeyDown(KeyCode.Escape)) {
-            Application.Quit();
-        }
     }
     #endregion
 }
@@ -4609,7 +4561,7 @@ public class PlayerMover : MonoBehaviour
         x = Mathf.Clamp(x, _minX, _maxX);
         float y = prevY + movement.y;
         y = Mathf.Clamp(y, _minY, _maxY);
-        _player.position = new Vector3(x, y, -60f);
+        _player.position = new Vector3(x, y, Const.PLAYER_UNIT);
     }
     public void Verification()
     {
@@ -5468,7 +5420,11 @@ public class SceneFlow : MonoBehaviour
         if (_isLoading) return;
         if (De.IsNull(_catalog)) return;
 
-        HandleHotKeys();
+        //HandleHotKeys();
+        // 게임 종료
+        if (Input.GetKeyDown(KeyCode.Escape)) {
+            LoadScene(SceneCatalog.ESceneID.Title, 0f);
+        }
     }
     // 인스턴스 정리
     private void OnDestroy()
@@ -5502,7 +5458,7 @@ public class SceneMover : MonoBehaviour
 // 경로: C:\Users\MyPC\Documents\GitMing\Assets\Scripts\Scene\TitleButton.cs 
 // ======================================================== 
  
-using UnityEngine;
+﻿using UnityEngine;
 
 public class TitleButton : MonoBehaviour
 {

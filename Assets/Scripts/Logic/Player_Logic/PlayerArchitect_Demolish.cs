@@ -35,12 +35,12 @@ public partial class PlayerArchitect
             return;
 
         Vector2 grid = UGrid.WorldToGrid(pos);
-        int gx = (int)grid.x;
-        int gy = (int)grid.y;
-        if (gx < 0 || _width <= gx || gy < 0 || _height <= gy)
+        int gridX = (int)grid.x;
+        int gridY = (int)grid.y;
+        if (gridX < 0 || _width <= gridX || gridY < 0 || _height <= gridY)
             return;
 
-        DemolishCell(UGrid.GridToIndex(gx, gy, _width));
+        DemolishCell(UGrid.GridToIndex(gridX, gridY, _width));
     }
 
     /// <summary>

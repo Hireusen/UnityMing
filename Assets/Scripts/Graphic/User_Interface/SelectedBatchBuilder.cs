@@ -16,10 +16,8 @@ public class SelectedBatchBuilder : MonoBehaviour
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    private Dictionary<BlockSpriteKey, int> _keyToSlot;
+    private BatchRegistry _registry;
     private Dictionary<EBlock, SO_Block> _soCache;
-    private List<BatchLists> _batches;
-    private int _batchCount;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -31,10 +29,8 @@ public class SelectedBatchBuilder : MonoBehaviour
 
     public void Initialize()
     {
-        _keyToSlot = new Dictionary<BlockSpriteKey, int>();
+        _registry = new BatchRegistry(_mesh, _baseMaterial, _alpha);
         _soCache = new Dictionary<EBlock, SO_Block>();
-        _batches = new List<BatchLists>();
-        _batchCount = 0;
     }
 
     /// <summary>
@@ -48,7 +44,7 @@ public class SelectedBatchBuilder : MonoBehaviour
         List<SelectedBlock> selecteds = game.Player.selecteds;
         int count = selecteds.Count;
 
-        ClearAllBatches();
+        _registry.ClearAll();
 
         if (count <= 0)
             return;
@@ -83,9 +79,9 @@ public class SelectedBatchBuilder : MonoBehaviour
             if (lastSO == null) continue;
 
             // 그리드 스냅 → 렌더링 중심
-            float gx = Mathf.Floor(cursorX + sel.offsetX);
-            float gy = Mathf.Floor(cursorY + sel.offsetY);
-            Vector2 renderPos = GetSelectedRenderPos(gx, gy, lastSize, sel.rotation);
+            float gridX = Mathf.Floor(cursorX + sel.offsetX);
+            float gridY = Mathf.Floor(cursorY + sel.offsetY);
+            Vector2 renderPos = GetSelectedRenderPos(gridX, gridY, lastSize, sel.rotation);
             float baseX = renderPos.x;
             float baseY = renderPos.y;
             float blockAngle = UGrid.RotationToAngle(sel.rotation);
@@ -93,7 +89,7 @@ public class SelectedBatchBuilder : MonoBehaviour
 
             for (int si = 0; si < lastSpriteCount; ++si) {
                 SpriteInfo info = lastSO.GetSpriteInfo(si);
-                int slot = GetOrCreateSlot(new BlockSpriteKey(sel.id, si), info.sprite);
+                int slot = _registry.GetOrCreateSlot(new BlockSpriteKey(sel.id, si), info.sprite);
                 float posZ = Const.SELECTED_BLOCK + info.offset.z;
 
                 Quaternion rot = (info.type == ESpriteType.Static || info.type == ESpriteType.Effect)
@@ -101,12 +97,12 @@ public class SelectedBatchBuilder : MonoBehaviour
                     : UGraphic.AngleToQuaternion(blockAngle);
 
                 Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
-                AddMatrix(slot, UGraphic.BuildMatrix(pos, rot, scale));
+                Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
+                _registry.Add(slot, in matrix);
             }
         }
 
-        // 그리기
-        DrawAllBatches();
+        _registry.DrawAll();
     }
     #endregion
 
@@ -121,68 +117,19 @@ public class SelectedBatchBuilder : MonoBehaviour
         return so;
     }
 
-    private int GetOrCreateSlot(BlockSpriteKey key, Sprite sprite)
-    {
-        if (_keyToSlot.TryGetValue(key, out int slot))
-            return slot;
-        Material mat = UGraphic.CreateMaterial(_baseMaterial, sprite);
-        Color c = mat.color;
-        c.a = _alpha;
-        mat.color = c;
-        slot = _batches.Count;
-        _batches.Add(new BatchLists(mat));
-        _keyToSlot.Add(key, slot);
-        _batchCount = _batches.Count;
-        return slot;
-    }
-
-    private void AddMatrix(int slot, Matrix4x4 matrix)
-    {
-        List<List<Matrix4x4>> matrices = _batches[slot].matrices;
-        List<Matrix4x4> curList = matrices[matrices.Count - 1];
-        if (1000 <= curList.Count) {
-            curList = new List<Matrix4x4>(1000);
-            matrices.Add(curList);
-        }
-        curList.Add(matrix);
-    }
-
-    private void ClearAllBatches()
-    {
-        for (int i = 0; i < _batchCount; ++i) {
-            List<List<Matrix4x4>> matrices = _batches[i].matrices;
-            for (int j = 0; j < matrices.Count; ++j)
-                matrices[j].Clear();
-            while (matrices.Count > 1)
-                matrices.RemoveAt(matrices.Count - 1);
-        }
-    }
-
-    private void DrawAllBatches()
-    {
-        for (int i = 0; i < _batchCount; ++i) {
-            Material mat = _batches[i].Mat;
-            List<List<Matrix4x4>> matrices = _batches[i].matrices;
-            for (int j = 0; j < matrices.Count; ++j) {
-                if (matrices[j].Count <= 0) continue;
-                Graphics.DrawMeshInstanced(_mesh, 0, mat, matrices[j]);
-            }
-        }
-    }
-
     /// <summary>
     /// 맵 밖에서도 사용 가능한 selected 전용 렌더링 좌표 계산
     /// </summary>
-    private static Vector2 GetSelectedRenderPos(float gx, float gy, Vector2Int size, ERotation rotation)
+    private static Vector2 GetSelectedRenderPos(float gridX, float gridY, Vector2Int size, ERotation rotation)
     {
-        int sizeX = size.x;
-        int sizeY = size.y;
+        int sx = size.x;
+        int sy = size.y;
         switch (rotation) {
-            case ERotation.Up: return new Vector2(gx + sizeX * 0.5f, gy + sizeY * 0.5f);
-            case ERotation.Right: return new Vector2(gx + sizeY * 0.5f, gy - sizeX * 0.5f);
-            case ERotation.Down: return new Vector2(gx - sizeX * 0.5f, gy - sizeY * 0.5f);
-            case ERotation.Left: return new Vector2(gx - sizeY * 0.5f, gy + sizeX * 0.5f);
-            default: return new Vector2(gx + sizeX * 0.5f, gy + sizeY * 0.5f);
+            case ERotation.Up: return new Vector2(gridX + sx * 0.5f, gridY + sy * 0.5f);
+            case ERotation.Right: return new Vector2(gridX + sy * 0.5f, gridY - sx * 0.5f);
+            case ERotation.Down: return new Vector2(gridX - sx * 0.5f, gridY - sy * 0.5f);
+            case ERotation.Left: return new Vector2(gridX - sy * 0.5f, gridY + sx * 0.5f);
+            default: return new Vector2(gridX + sx * 0.5f, gridY + sy * 0.5f);
         }
     }
     #endregion

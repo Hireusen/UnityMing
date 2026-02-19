@@ -220,12 +220,12 @@ public class BlockMap
         int count = 0;
         for (int y = 0; y < spanY; ++y) {
             for (int x = 0; x < spanX; ++x) {
-                int gx = gridX + x * dirX;
-                int gy = gridY + y * dirY;
+                int localGridX = gridX + x * dirX;
+                int localGridY = gridY + y * dirY;
                 // 맵 범위 검사
-                if (gx < 0 || _width <= gx || gy < 0 || _height <= gy)
+                if (localGridX < 0 || _width <= localGridX || localGridY < 0 || _height <= localGridY)
                     continue;
-                buffer[count++] = UGrid.GridToIndex(gx, gy, _width);
+                buffer[count++] = UGrid.GridToIndex(localGridX, localGridY, _width);
             }
         }
         return count;

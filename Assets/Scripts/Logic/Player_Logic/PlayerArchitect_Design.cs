@@ -46,12 +46,12 @@ public partial class PlayerArchitect
                 continue;
 
             // 그리드 스냅
-            int gx = Mathf.FloorToInt(cx + sel.offsetX);
-            int gy = Mathf.FloorToInt(cy + sel.offsetY);
-            if (gx < 0 || _width <= gx || gy < 0 || _height <= gy)
+            int gridX = Mathf.FloorToInt(cx + sel.offsetX);
+            int gridY = Mathf.FloorToInt(cy + sel.offsetY);
+            if (gridX < 0 || _width <= gridX || gridY < 0 || _height <= gridY)
                 continue;
 
-            int centerIndex = UGrid.GridToIndex(gx, gy, _width);
+            int centerIndex = UGrid.GridToIndex(gridX, gridY, _width);
 
             if (!_blockSO.TryGetValue(sel.id, out SO_Block so))
                 continue;

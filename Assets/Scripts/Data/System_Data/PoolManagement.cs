@@ -28,7 +28,7 @@ public class PoolManagement<T> where T : struct
     /// </summary>
     public int Capacity => _nextIndex;
 
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
+    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     /// <summary>
     /// 새로운 데이터 등록
     /// 생성 실패했을 경우 -1을 반환
@@ -47,8 +47,8 @@ public class PoolManagement<T> where T : struct
         else {
             // 공간 부족
             if (_dataList.Length <= _nextIndex) {
-                
-                if (!UArray.TryResizeArray(ref _dataList, 1.5d)) { // 배열 확장 시도
+                // 배열 확장 시도
+                if (!UArray.TryResizeArray(ref _dataList, 1.5d)) {
                     return -1;
                 }
                 UArray.TryResizeArray(ref _isActive, 1.5d);

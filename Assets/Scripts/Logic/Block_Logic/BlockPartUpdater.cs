@@ -44,10 +44,10 @@ public class BlockPartUpdater : MonoBehaviour
         float playerY = _playerTransform.position.y;
         int capacity = _pool.Capacity;
 
-        for (int adress = 0; adress < capacity; ++adress) {
-            if (!_pool.IsExist(adress))
+        for (int i = 0; i < capacity; ++i) {
+            if (!_pool.IsExist(i))
                 continue;
-            ref BlockSingle block = ref _pool.GetRef(adress);
+            ref BlockSingle block = ref _pool.GetRef(i);
             if (block.IsVoid())
                 continue;
             if (!_blockSO.TryGetValue(block.id, out SO_Block so))

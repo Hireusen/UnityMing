@@ -1,8 +1,7 @@
 ﻿using System;
 
 /// <summary>
-/// 블록 ID와 스프라이트 인덱스를 조합하여 배치 렌더링의 키로 사용하는 구조체입니다.
-/// 같은 블록이라도 레이어(Body, Turret 등)별로 다른 Material을 사용해야 하므로 분리합니다.
+/// 블록 ID와 스프라이트 인덱스가 결합된 구조체입니다.
 /// </summary>
 public struct BlockSpriteKey : IEquatable<BlockSpriteKey>
 {

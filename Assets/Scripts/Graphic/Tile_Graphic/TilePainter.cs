@@ -57,8 +57,8 @@ public class TilePainter : MonoBehaviour
             }
 
             // 행렬 생성 (셀 중심)
-            (int gx, int gy) = UGrid.IndexToGrid(index, width);
-            Vector3 pos = new Vector3(gx + 0.5f, gy + 0.5f, 0f);
+            (int gridX, int gridY) = UGrid.IndexToGrid(index, width);
+            Vector3 pos = new Vector3(gridX + 0.5f, gridY + 0.5f, 0f);
             Matrix4x4 matrix = Matrix4x4.TRS(pos, Quaternion.identity, Vector3.one);
 
             // 배치에 추가

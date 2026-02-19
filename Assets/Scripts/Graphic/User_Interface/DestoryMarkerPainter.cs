@@ -48,8 +48,7 @@ public class DestroyMarkerPainter : MonoBehaviour
         var blockSO = game.BlockDatabase;
         int used = 0;
 
-        foreach (var kvp in designs) {
-            BuildOrder order = kvp.Value;
+        foreach (BuildOrder order in designs.Values) {
             if (order.type != EOrderType.Destroy)
                 continue;
 

@@ -483,7 +483,7 @@ MonoBehaviour:
   _copyBlock: 102
   _symmetryHori: 122
   _symmetryVert: 120
-  _dragThreshold: 2
+  _dragThreshold: 0.2
   _scrollInterval: 0
 --- !u!4 &181968949
 Transform:
@@ -1029,7 +1029,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 75
+  orthographic size: 125
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
@@ -2623,7 +2623,7 @@ MonoBehaviour:
   _zoomSpeed: 10
   _zoomSharpness: 10
   _minSize: 10
-  _maxSize: 50
+  _maxSize: 75
 --- !u!1 &799810378
 GameObject:
   m_ObjectHideFlags: 0
@@ -2668,10 +2668,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c9963b3c3673ae4aa907aa8274e4f08, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _groundTileID: 01000000020000000300000004000000
-  _wallTileID: 0500000006000000
-  _mapWidth: 200
-  _mapHeight: 200
+  _groundTileID: 01020304
+  _wallTileID: 0506
+  _mapWidth: 400
+  _mapHeight: 400
   _noisePercent: 57
   _smoothCount: 10
   _outlineWall: 3

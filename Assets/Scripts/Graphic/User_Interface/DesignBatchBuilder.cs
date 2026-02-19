@@ -16,9 +16,7 @@ public class DesignBatchBuilder : MonoBehaviour
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 변수 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    private Dictionary<BlockSpriteKey, int> _keyToSlot;
-    private List<BatchLists> _batches;
-    private int _batchCount;
+    private BatchRegistry _registry;
     #endregion
 
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 외부 공개 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
@@ -30,9 +28,7 @@ public class DesignBatchBuilder : MonoBehaviour
 
     public void Initialize()
     {
-        _keyToSlot = new Dictionary<BlockSpriteKey, int>();
-        _batches = new List<BatchLists>();
-        _batchCount = 0;
+        _registry = new BatchRegistry(_mesh, _baseMaterial, _alpha);
     }
 
     /// <summary>
@@ -44,7 +40,7 @@ public class DesignBatchBuilder : MonoBehaviour
         if (De.IsNull(game) || De.IsNull(game.Player)) return;
 
         var designs = game.Player.designs;
-        ClearAllBatches();
+        _registry.ClearAll();
 
         if (designs.Count <= 0)
             return;
@@ -52,8 +48,7 @@ public class DesignBatchBuilder : MonoBehaviour
         BlockMap blockMap = game.Blocks;
         var blockSO = game.BlockDatabase;
 
-        foreach (var kvp in designs) {
-            BuildOrder order = kvp.Value;
+        foreach (var order in designs.Values) {
             if (order.type != EOrderType.Build)
                 continue;
             if (!blockSO.TryGetValue(order.id, out SO_Block so))
@@ -69,72 +64,20 @@ public class DesignBatchBuilder : MonoBehaviour
             int spriteCount = so.SpriteCount;
             for (int si = 0; si < spriteCount; ++si) {
                 SpriteInfo info = so.GetSpriteInfo(si);
-                int slot = GetOrCreateSlot(new BlockSpriteKey(order.id, si), info.sprite);
+                int slot = _registry.GetOrCreateSlot(new BlockSpriteKey(order.id, si), info.sprite);
                 float posZ = Const.DESIGN_BLOCK + info.offset.z;
 
-                // 디자인 블록은 설치 방향으로만 회전
                 Quaternion rot = (info.type == ESpriteType.Static || info.type == ESpriteType.Effect)
                     ? Quaternion.identity
                     : UGraphic.AngleToQuaternion(blockAngle);
 
                 Vector3 pos = UGraphic.RotateOffset(baseX, baseY, info.offset.x, info.offset.y, blockAngle, posZ);
-                AddMatrix(slot, UGraphic.BuildMatrix(pos, rot, scale));
+                Matrix4x4 matrix = UGraphic.BuildMatrix(pos, rot, scale);
+                _registry.Add(slot, in matrix);
             }
         }
 
-        // 그리기
-        DrawAllBatches();
-    }
-    #endregion
-
-    #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
-    private int GetOrCreateSlot(BlockSpriteKey key, Sprite sprite)
-    {
-        if (_keyToSlot.TryGetValue(key, out int slot))
-            return slot;
-        Material mat = UGraphic.CreateMaterial(_baseMaterial, sprite);
-        Color c = mat.color;
-        c.a = _alpha;
-        mat.color = c;
-        slot = _batches.Count;
-        _batches.Add(new BatchLists(mat));
-        _keyToSlot.Add(key, slot);
-        _batchCount = _batches.Count;
-        return slot;
-    }
-
-    private void AddMatrix(int slot, Matrix4x4 matrix)
-    {
-        List<List<Matrix4x4>> matrices = _batches[slot].matrices;
-        List<Matrix4x4> curList = matrices[matrices.Count - 1];
-        if (1000 <= curList.Count) {
-            curList = new List<Matrix4x4>(1000);
-            matrices.Add(curList);
-        }
-        curList.Add(matrix);
-    }
-
-    private void ClearAllBatches()
-    {
-        for (int i = 0; i < _batchCount; ++i) {
-            List<List<Matrix4x4>> matrices = _batches[i].matrices;
-            for (int j = 0; j < matrices.Count; ++j)
-                matrices[j].Clear();
-            while (matrices.Count > 1)
-                matrices.RemoveAt(matrices.Count - 1);
-        }
-    }
-
-    private void DrawAllBatches()
-    {
-        for (int i = 0; i < _batchCount; ++i) {
-            Material mat = _batches[i].Mat;
-            List<List<Matrix4x4>> matrices = _batches[i].matrices;
-            for (int j = 0; j < matrices.Count; ++j) {
-                if (matrices[j].Count <= 0) continue;
-                Graphics.DrawMeshInstanced(_mesh, 0, mat, matrices[j]);
-            }
-        }
+        _registry.DrawAll();
     }
     #endregion
 }

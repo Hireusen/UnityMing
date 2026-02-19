@@ -25,9 +25,10 @@ public class PlayerMover : MonoBehaviour
     #region 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓 내부 메서드 〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓〓
     private void SetRotation(Vector2 axis)
     {
-        // 건설/철거 중에는 해당 방향을 바라봐야 하므로 이동 방향 회전 스킵
+        // 회전하지 않음
         if (_playerData.lookAtBuild)
             return;
+        // 목표 방향으로 회전
         float desiredAngle = Mathf.Atan2(axis.y, axis.x) * Mathf.Rad2Deg;
         Quaternion desiredQuaternion = Quaternion.Euler(0f, 0f, desiredAngle - 90f);
         _player.rotation = Quaternion.Lerp(_player.rotation, desiredQuaternion, 0.1f);
